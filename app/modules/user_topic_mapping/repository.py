@@ -1,11 +1,11 @@
-"""All SQL for `user_topic_map` lives here — this module is the table's sole writer
-(see CLAUDE.md, "Architecture rules")."""
+"""All SQL for `user_topic_map` and `user_section_progress` lives here — this module is the sole
+writer of both (see CLAUDE.md, "Architecture rules")."""
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.user_topic_mapping.models import UserTopicMastery
+from app.modules.user_topic_mapping.models import UserSectionProgress, UserTopicMastery
 
 
 class UserTopicMappingRepository:
@@ -129,3 +129,81 @@ class UserTopicMappingRepository:
         )
         await self.session.execute(stmt)
         await self.session.flush()
+
+    # ---- user_section_progress ----
+
+    async def save_section_progress(
+        self, user_id: str, cycle_version: int, rows: list[tuple[str, int, float, float]]
+    ) -> None:
+        """Append one progress point per section as `(section, level, raw_score, progress_score)`.
+
+        `DO NOTHING` rather than `DO UPDATE`: `update_from_evaluation` runs under
+        `retry_sync_call()` with a fresh session per attempt, so a retry that gets past the replay
+        guard must not append a duplicate point or rewrite one the candidate has already seen.
+        """
+        if not rows:
+            return
+        stmt = (
+            pg_insert(UserSectionProgress)
+            .values(
+                [
+                    {
+                        "user_id": user_id,
+                        "cycle_version": cycle_version,
+                        "section": section,
+                        "current_level": level,
+                        "raw_score": raw_score,
+                        "progress_score": progress_score,
+                    }
+                    for section, level, raw_score, progress_score in rows
+                ]
+            )
+            .on_conflict_do_nothing(constraint="uq_user_section_progress_cycle")
+        )
+        await self.session.execute(stmt)
+
+    async def latest_section_progress(self, user_id: str) -> list[UserSectionProgress]:
+        """The newest point per section — what `get_for_user` reports as current standing.
+
+        `DISTINCT ON` keeps this one round trip; the ordering inside the parentheses is what picks
+        which row survives per section, so it must stay `(section, cycle_version DESC)`.
+        """
+        stmt = (
+            select(UserSectionProgress)
+            .where(UserSectionProgress.user_id == user_id)
+            .distinct(UserSectionProgress.section)
+            .order_by(UserSectionProgress.section, UserSectionProgress.cycle_version.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def section_progress_history(
+        self, user_id: str, tests: int
+    ) -> list[UserSectionProgress]:
+        """Every stored point from the candidate's most recent `tests` evaluated cycles, oldest
+        first so the caller can plot without re-sorting.
+
+        Two steps rather than a `LIMIT` on the rows themselves: a limit would cut mid-cycle and
+        return a partial set of sections for the oldest test in the window.
+        """
+        cycles_stmt = (
+            select(UserSectionProgress.cycle_version)
+            .where(UserSectionProgress.user_id == user_id)
+            .distinct()
+            .order_by(UserSectionProgress.cycle_version.desc())
+            .limit(tests)
+        )
+        cycles = list((await self.session.execute(cycles_stmt)).scalars().all())
+        if not cycles:
+            return []
+
+        stmt = (
+            select(UserSectionProgress)
+            .where(
+                UserSectionProgress.user_id == user_id,
+                UserSectionProgress.cycle_version.in_(cycles),
+            )
+            .order_by(UserSectionProgress.cycle_version, UserSectionProgress.section)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
