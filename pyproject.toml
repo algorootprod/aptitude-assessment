@@ -1,0 +1,57 @@
+[project]
+name = "aptitude-assessment"
+version = "0.1.0"
+description = "Aptitude Assessment — diagnostic aptitude testing microservice for the AlgoJob stack."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136.1",
+    "uvicorn[standard]>=0.47.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "aioboto3>=13.3.0",
+    "tenacity>=9.0.0",
+    "httpx>=0.28.0",
+    "structlog>=24.4.0",
+    "api-service-handler[postgresql]>=0.1.10",
+    "tzdata>=2024.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "moto[sqs]>=5.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Pre-existing one-off DB check script, not written to this project's conventions and not run
+# by anything — see CLAUDE.md ("Question bank: real data now reconciled"), which also flags the
+# hardcoded credential in it that still needs moving into .env.
+exclude = ["scripts/verify_neon.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "ASYNC"]
+# B008: FastAPI's Depends() in argument defaults is the standard injection pattern
+per-file-ignores = {"app/api/**/*.py" = ["B008"]}
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["aioboto3.*", "asyncpg.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
