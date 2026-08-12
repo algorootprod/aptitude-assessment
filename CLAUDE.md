@@ -212,6 +212,35 @@ bank ever grows those, give DI its own signal function rather than re-splitting 
 validator enforcing exactly one: `{section, topic, quadrant?, score?}` — `score` required for
 `di`, `quadrant` required for everything else.
 
+**Per-section progress score** (`app/modules/user_topic_mapping/progress.py`) turns
+`(level, raw score)` into one 0–100 figure per section, on `UserTopicMapOut.section_progress`:
+
+```
+O = (100 / Λ) × [(L − 1) + s / 100]      Λ = max_topic_level = 5
+L1 0–20 · L2 20–40 · L3 40–60 · L4 60–80 · L5 80–100
+```
+
+Each level owns an equal 20-point slice, so "scored full marks at this level" and "promoted a
+level" are worth the same. Ported from apex-assessment's `app/core/cefr.py:skill_progress_score`
+(Λ = 6 there, and apex applies it to sections as well as skills); only the formula came across —
+apex's CEFR ladder has no counterpart here, and its `LEVEL_BANDS` is a *different*, non-uniform
+concept that must not be mixed in.
+
+`L` is the **most repeated level** among the topics the last test covered (lowest wins a tie, so
+the figure never overstates); `s` is those same topics' mean `mastery_score`, which for a non-DI
+section is exactly the section score the report shows, and for DI is the set's `di_section_score`.
+
+The cohort is **`last_cycle == cycle_version − 1`**, deliberately *not* `times_tested > 0`:
+`times_tested` is incremented in `mark_scheduled`, i.e. when a topic is *scheduled*, so it counts
+topics queued for the in-flight test whose `mastery_score` is still `0.0`, and including them
+would silently drag every section down. Keying on `last_cycle` also survives the next test not
+having been assembled yet. `tests/unit/test_progress.py` pins that trap.
+
+**Every section reads 0.0 until the first evaluation** — matching apex's "no initial score is
+assigned at signup". This is an explicit guard on `cycle_version <= 1`, not a derivation: at
+signup `cycle_version − 1 == 0` would match the *never-scheduled* topics and report a meaningless
+20.0 off their seeded level 2.
+
 **Topic rotation is strict round-robin and blind to probation.** Order a section's topics by
 `(last_cycle, topic)` and take the first N — no cursor column needed, since a never-scheduled
 topic sits at `last_cycle = 0`. N is 5 for the 17-topic sections and **1 for DI**, because a DI
@@ -269,6 +298,18 @@ after a candidate signed up start being rotated in rather than staying invisible
   fields and never feed the ladder — nothing reads the *column* back to move a level, though the
   scale behind it does drive DI (see "The level ladder"). `mastery_score` reads 0 for a question
   that was wrong, skipped or unreached.
+- **`user_section_progress`** (`user_topic_mapping`) — unique `(user_id, section, cycle_version)`,
+  plus `current_level`, `raw_score`, `progress_score`, `created_at`. One appended row per section
+  per evaluated test: the progress chart's data points, and the source of the *current* standing
+  on `UserTopicMapOut.section_progress`. Added by migration `0005`.
+
+  This is the deliberate exception to `user_topic_map` holding current state only. A level
+  *movement* stays unstored and reconstructible, but the 0–100 figure the candidate is **shown**
+  is a different thing: recomputing the series on read would reach across `user_test_questions`
+  and `evaluation_result` — two other modules' tables — and risk a number disagreeing with the one
+  already on screen. Written `ON CONFLICT DO NOTHING`, which is what makes it safe under
+  `update_from_evaluation`'s `retry_sync_call()`: a retry must not append a second point or
+  rewrite one already read. `cycle_version` is the cycle **evaluated**, not the one it advanced to.
 - **`user_test_questions`** (`user_test_mapping`) — unique `(user_id, cycle_version)`,
   `sections` (JSON). A **resolved id list**, not a selection recipe: one key per section holding
   `budget_seconds` and a `questions` array of `{question_id, topic, level,
@@ -355,6 +396,7 @@ VPC/compose network).
 | `POST /v1/tests/start` | `{user_id}` | `UserTestMapOut` | `user_test_mapping` |
 | `POST /v1/tests/complete` | `TestCompletedIn` | **`ReportOut`** | `evaluation_report` |
 | `GET /v1/reports/{user_id}` | `?cycle_version=N` (optional) | `ReportOut` | `evaluation_report` |
+| `GET /v1/progress/{user_id}` | `?tests=N` (1–50, default 10) | `ProgressHistoryOut` | `user_topic_mapping` |
 | `POST /v1/admin/reconcile` | `{user_id?}` | `ReconcileOut` | `evaluation_report` |
 | `GET /v1/health`, `/v1/ready` | — | — | — |
 
@@ -636,8 +678,8 @@ The evaluation half — all confirmed, over both the service API and real HTTP:
 - a fourth cycle brings topics back around and promotes them, clearing their probation
 - `GET /v1/reports/{id}?cycle_version=99` → **404**, not 500
 
-All 6 tables live in Neon: `user_topic_map`, `question_bank` (the renamed, real
-`daily20_questions` — 1,310 rows), `user_test_questions`, `user_answers`,
+All 7 tables live in Neon: `user_topic_map`, `user_section_progress`, `question_bank` (the
+renamed, real `daily20_questions` — 1,310 rows), `user_test_questions`, `user_answers`,
 `evaluation_result`, `user_reports`. `daily20_questions` no longer exists as a separate table —
 it *is* `question_bank` now.
 
