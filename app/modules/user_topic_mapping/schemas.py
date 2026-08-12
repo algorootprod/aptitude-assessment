@@ -18,10 +18,60 @@ class TopicMastery(BaseModel):
     streak: int
 
 
+class SectionProgress(BaseModel):
+    """How far through the 1-5 ladder one section is, on a 0-100 scale — see `progress.py`.
+
+    Distinct from the per-sitting section score in `evaluation_report`: this is standing carried
+    across cycles, that is how one paper went, and the two will usually disagree.
+    """
+
+    section: str
+    progress_score: float = Field(description="0-100. Each level owns an equal 20-point slice.")
+    current_level: int | None = Field(
+        default=None,
+        description="The most repeated level across the topics the last test covered. Null "
+        "when the section has never been evaluated — which is not the same as scoring zero.",
+    )
+    raw_score: float | None = Field(
+        default=None,
+        description="0-100 mean `mastery_score` of those same topics — the last test's "
+        "section score. Null alongside `current_level`.",
+    )
+
+
+class SectionProgressPoint(BaseModel):
+    """One section's standing after one evaluated test — a single point on the progress chart."""
+
+    cycle_version: int = Field(description="The cycle that was evaluated to produce this point.")
+    current_level: int
+    raw_score: float
+    progress_score: float
+
+
+class SectionProgressSeries(BaseModel):
+    section: str
+    points: list[SectionProgressPoint] = Field(
+        default_factory=list, description="Oldest to newest, ready to plot without re-sorting."
+    )
+
+
+class ProgressHistoryOut(BaseModel):
+    """`GET /v1/progress/{user_id}` — progress only, no topic or question detail."""
+
+    user_id: str
+    tests: int = Field(description="How many evaluated cycles this response actually covers.")
+    sections: list[SectionProgressSeries]
+
+
 class UserTopicMapOut(BaseModel):
     user_id: str
     cycle_version: int
     topics: list[TopicMastery]
+    section_progress: list[SectionProgress] = Field(
+        default_factory=list,
+        description="One entry per section, in `SECTION_ORDER`. All zero until the first "
+        "evaluation — no initial score is assigned at signup.",
+    )
 
 
 class TopicOutcomeIn(BaseModel):
