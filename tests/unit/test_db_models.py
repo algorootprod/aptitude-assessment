@@ -11,6 +11,7 @@ from app.modules.user_topic_mapping import models as _utop_models  # noqa: F401
 
 EXPECTED_TABLES = {
     "user_topic_map",
+    "user_section_progress",
     "question_bank",
     "user_test_questions",
     "user_answers",
