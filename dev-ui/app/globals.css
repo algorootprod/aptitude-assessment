@@ -652,6 +652,163 @@ td.n {
   display: inline-block;
 }
 
+/* ── progress chart ──────────────────────────────────── */
+/* Categorical series colours. These are NOT the status tokens above — --good/--warning/
+   --critical are reserved for state and must never stand in for "series 3". Validated as a
+   4-slot categorical set against both surfaces (worst adjacent CVD ΔE 9.1 light / 8.4 dark).
+   Aqua and yellow fall below 3:1 on the light surface, which is why every line carries a
+   direct label rather than relying on colour alone. */
+.chartwrap {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  position: relative;
+  margin-top: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .chartwrap {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+  }
+}
+:root[data-theme="dark"] .chartwrap {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+}
+.progresschart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.cgrid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.ccross {
+  stroke: var(--ring);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.ctick {
+  font-size: 10.5px;
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.clabel {
+  font-size: 11.5px;
+  fill: var(--ink-2);
+}
+.cline {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cdot {
+  stroke: var(--surface-1);
+  stroke-width: 2;
+}
+.cs-1 .cline {
+  stroke: var(--series-1);
+}
+.cs-1 .cdot {
+  fill: var(--series-1);
+}
+.cs-2 .cline {
+  stroke: var(--series-2);
+}
+.cs-2 .cdot {
+  fill: var(--series-2);
+}
+.cs-3 .cline {
+  stroke: var(--series-3);
+}
+.cs-3 .cdot {
+  fill: var(--series-3);
+}
+.cs-4 .cline {
+  stroke: var(--series-4);
+}
+.cs-4 .cdot {
+  fill: var(--series-4);
+}
+.clegend {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  font-size: 11.8px;
+  color: var(--ink-2);
+  margin-top: 10px;
+}
+.clegend span,
+.ctip div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.clegend i,
+.ctip i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+  flex: none;
+}
+.cs-1 i {
+  background: var(--series-1);
+}
+.cs-2 i {
+  background: var(--series-2);
+}
+.cs-3 i {
+  background: var(--series-3);
+}
+.cs-4 i {
+  background: var(--series-4);
+}
+.cleader {
+  stroke: var(--ring);
+  stroke-width: 1;
+}
+.ctip {
+  position: absolute;
+  top: 0;
+  background: var(--surface-1);
+  border: 1px solid var(--ring);
+  border-radius: 9px;
+  padding: 9px 11px;
+  font-size: 12px;
+  color: var(--ink-2);
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+.ctip.right {
+  right: 0;
+}
+.ctip.left {
+  left: 0;
+}
+.ctip strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink);
+  font-size: 12.4px;
+}
+.ctip b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.cmeta {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .finds {
   list-style: none;
   padding: 0;
