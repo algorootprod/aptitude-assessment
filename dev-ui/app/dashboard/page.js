@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { getUserId, clearLastReport } from "@/lib/session";
 import { SECTION_NAMES, SECTION_ORDER } from "@/lib/sections";
 import ThemeToggle from "@/components/ThemeToggle";
+import ProgressChart from "@/components/ProgressChart";
 
 function LevelDots({ level }) {
   return (
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [userId, setUserId] = useState("");
   const [data, setData] = useState(null);
+  const [history, setHistory] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,6 +38,11 @@ export default function DashboardPage() {
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+    // The chart is supplementary — a failure here must not blank the whole dashboard.
+    api
+      .progressHistory(uid)
+      .then(setHistory)
+      .catch(() => setHistory(null));
   }, [router]);
 
   const bySection = {};
@@ -77,6 +84,16 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {!loading && (
+        <div className="card">
+          <h2>Progress over tests</h2>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Each section&apos;s standing after every test. Hover a test for its level and raw score.
+          </p>
+          <ProgressChart sections={history?.sections} />
+        </div>
+      )}
 
       {!loading && data && (
         <div className="card">
