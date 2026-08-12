@@ -45,6 +45,8 @@ export const api = {
   signup: (userId) => request("POST", "/users/signup", { user_id: userId }),
   startTest: (userId) => request("POST", "/tests/start", { user_id: userId }),
   completeTest: (payload) => request("POST", "/tests/complete", payload),
+  progressHistory: (userId, tests = 10) =>
+    request("GET", `/progress/${encodeURIComponent(userId)}?tests=${tests}`),
   getReport: (userId, cycleVersion) =>
     request(
       "GET",
