@@ -1,0 +1,498 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily 20 — test &amp; report prototype</title><style>
+:root{color-scheme:light dark;
+--surface-1:#fcfcfb;--plane:#f9f9f7;--ink:#0b0b0b;--ink-2:#52514e;--muted:#898781;
+--grid:#e1e0d9;--ring:rgba(11,11,11,.10);--track:#eceae4;--sel:rgba(42,120,214,.09);
+--s1:#2a78d6;--good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+--surface-1:#1a1a19;--plane:#0d0d0d;--ink:#fff;--ink-2:#c3c2b7;--muted:#898781;
+--grid:#2c2c2a;--ring:rgba(255,255,255,.10);--track:#242422;--sel:rgba(57,135,229,.16);
+--s1:#3987e5;}}
+:root[data-theme="dark"]{--surface-1:#1a1a19;--plane:#0d0d0d;--ink:#fff;--ink-2:#c3c2b7;
+--muted:#898781;--grid:#2c2c2a;--ring:rgba(255,255,255,.10);--track:#242422;
+--sel:rgba(57,135,229,.16);--s1:#3987e5;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.screen{display:none} .screen.on{display:block}
+.wrap{max-width:820px;margin:0 auto;padding:26px 20px 60px}
+.wide{max-width:900px}
+button{font:inherit;cursor:pointer}
+h1{font-size:26px;margin:0 0 8px;letter-spacing:-.02em}
+h2{font-size:19px;margin:0 0 10px;letter-spacing:-.015em}
+h3{font-size:15px;margin:0 0 8px}
+h5{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+margin:0 0 6px;font-weight:600}
+p{margin:0 0 12px}
+.card{background:var(--surface-1);border:1px solid var(--ring);border-radius:14px;
+padding:22px 24px;margin-bottom:18px}
+.muted{color:var(--ink-2);font-size:14px}
+.cap{color:var(--muted);font-size:12.4px;margin:0}
+
+/* ── start ───────────────────────────────────────────── */
+.rules{list-style:none;padding:0;margin:14px 0 0}
+.rules li{padding:11px 0 11px 30px;position:relative;border-bottom:1px solid var(--grid);
+font-size:14.2px;color:var(--ink-2)}
+.rules li:last-child{border-bottom:0}
+.rules li::before{content:"";position:absolute;left:4px;top:19px;width:7px;height:7px;
+border-radius:50%;background:var(--s1)}
+.rules b{color:var(--ink)}
+.plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}
+.pl{background:var(--plane);border:1px solid var(--ring);border-radius:10px;padding:12px 14px}
+.pl .n{font-size:13.5px;font-weight:600} .pl .t{font-size:12.4px;color:var(--muted);margin-top:2px}
+.cta{background:var(--s1);color:#fff;border:0;border-radius:9px;padding:12px 24px;
+font-size:15px;font-weight:500}
+.cta:hover{filter:brightness(1.07)}
+.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--ring);
+border-radius:9px;padding:12px 18px;font-size:14px}
+.ghost:hover{background:var(--plane)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+
+/* ── test ────────────────────────────────────────────── */
+.bar{position:sticky;top:0;z-index:5;background:var(--surface-1);
+border-bottom:1px solid var(--ring);padding:12px 20px}
+.barin{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.sname{font-size:14.5px;font-weight:600}
+.dots{display:flex;gap:5px;margin-left:4px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--track);
+border:1px solid var(--ring)}
+.dot.done{background:var(--s1);border-color:var(--s1)} .dot.now{box-shadow:0 0 0 3px var(--sel)}
+.qcount{font-size:12.6px;color:var(--muted);font-variant-numeric:tabular-nums}
+.clock{margin-left:auto;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;
+letter-spacing:.01em}
+.clock.warn{color:var(--warning)} .clock.crit{color:var(--critical)}
+.clocklab{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;
+text-align:right;margin-top:-4px}
+.direction{background:var(--plane);border:1px solid var(--ring);border-radius:11px;
+padding:14px 16px;margin-bottom:16px}
+.direction p{font-size:13.6px;color:var(--ink-2);margin:0 0 10px}
+.chartbox{background:var(--surface-1);border:1px solid var(--ring);border-radius:9px;padding:8px}
+.qtext{font-size:17px;line-height:1.5;margin:0 0 18px;white-space:pre-line}
+.opt{display:block;width:100%;text-align:left;background:var(--surface-1);
+border:1px solid var(--ring);border-radius:10px;padding:13px 16px;margin-bottom:9px;
+font-size:15px;color:var(--ink);transition:background .12s,border-color .12s}
+.opt:hover{background:var(--plane)}
+.opt .k{display:inline-flex;width:24px;height:24px;border-radius:6px;background:var(--track);
+color:var(--ink-2);align-items:center;justify-content:center;font-size:12.5px;
+font-weight:600;margin-right:11px;vertical-align:-5px}
+.opt.sel{border-color:var(--s1);background:var(--sel)}
+.opt.sel .k{background:var(--s1);color:#fff}
+.foot{display:flex;align-items:center;gap:12px;margin-top:20px;padding-top:16px;
+border-top:1px solid var(--grid)}
+.foot .warnnote{font-size:12.4px;color:var(--muted);margin-left:auto;text-align:right}
+.cta:disabled{opacity:.4;cursor:not-allowed;filter:none}
+
+/* ── transition ──────────────────────────────────────── */
+.tr{text-align:center;padding:50px 24px}
+.tr .big{font-size:34px;font-weight:600;letter-spacing:-.02em;margin-bottom:6px}
+.trstat{display:flex;justify-content:center;gap:34px;margin:24px 0 30px;flex-wrap:wrap}
+.trstat div{text-align:center}
+.trstat .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.trstat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+/* ── report ──────────────────────────────────────────── */
+.hero{font-size:20px;line-height:1.5;margin:0 0 4px;letter-spacing:-.01em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px;margin:18px 0}
+.tile{background:var(--plane);border:1px solid var(--ring);border-radius:11px;
+padding:13px 15px;border-top:3px solid var(--grid)}
+.t-good{border-top-color:var(--good)} .t-warning{border-top-color:var(--warning)}
+.t-serious{border-top-color:var(--serious)} .t-critical{border-top-color:var(--critical)}
+.tnum{font-size:29px;line-height:1;font-weight:600}
+.tlab{font-size:13.3px;font-weight:600;margin:4px 0 4px}
+.tile p{margin:0;font-size:12.4px;color:var(--ink-2);line-height:1.45}
+table{width:100%;border-collapse:collapse;font-size:13.6px}
+th{text-align:left;font-size:10.8px;text-transform:uppercase;letter-spacing:.05em;
+color:var(--muted);font-weight:500;padding:7px 8px;border-bottom:1px solid var(--grid)}
+td{padding:10px 8px;border-bottom:1px solid var(--grid);color:var(--ink-2)}
+td.n{font-variant-numeric:tabular-nums;color:var(--ink)}
+.mtrack{height:7px;background:var(--track);border-radius:4px;overflow:hidden;min-width:80px}
+.mbar{display:block;height:100%;background:var(--s1);border-radius:4px}
+.mtxt{font-size:11.4px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* section score cards */
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:12px;margin:6px 0 4px}
+.sc{background:var(--plane);border:1px solid var(--ring);border-radius:12px;padding:14px 16px}
+.sc .top{display:flex;align-items:baseline;gap:8px;margin-bottom:11px}
+.sc .nm{font-size:13.4px;font-weight:600}
+.sc .val{margin-left:auto;font-size:27px;font-weight:600;line-height:1;
+font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mix{display:flex;gap:2px;height:9px;margin-bottom:11px}
+.mix span{display:block;border-radius:2px}
+.mix span:first-child{border-radius:4px 2px 2px 4px} .mix span:last-child{border-radius:2px 4px 4px 2px}
+.m-mastered{background:var(--good)} .m-fragile{background:var(--warning)}
+.m-careless{background:var(--serious)} .m-gap{background:var(--critical)}
+.m-unreached{background:var(--track)}
+.sc .kv{display:flex;gap:14px;font-size:11.9px;color:var(--muted)}
+.sc .kv b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.sc .kv .over{color:var(--warning)}
+.slegend{display:flex;gap:15px;flex-wrap:wrap;font-size:11.8px;color:var(--ink-2);margin:14px 0 0}
+.slegend span{display:flex;align-items:center;gap:6px}
+.slegend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.finds{list-style:none;padding:0;margin:0}
+.finds li{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid var(--grid)}
+.finds li:last-child{border-bottom:0}
+.fico{flex:none;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;
+justify-content:center;font-size:14px}
+.f-warning{background:rgba(250,178,25,.16)} .f-serious{background:rgba(236,131,90,.16)}
+.f-critical{background:rgba(208,59,59,.14)} .f-good{background:rgba(12,163,12,.13)}
+.finds h4{margin:0 0 3px;font-size:14.5px}
+.finds p{margin:0;font-size:13.4px;color:var(--ink-2)}
+.act{counter-reset:a;list-style:none;padding:0;margin:0}
+.act li{position:relative;padding:13px 0 13px 40px;border-bottom:1px solid var(--grid)}
+.act li:last-child{border-bottom:0}
+.act li::before{counter-increment:a;content:counter(a);position:absolute;left:0;top:13px;
+width:25px;height:25px;border-radius:50%;background:var(--s1);color:#fff;font-size:12.5px;
+display:flex;align-items:center;justify-content:center;font-weight:600}
+.act h4{margin:0 0 3px;font-size:14.4px} .act p{margin:0;font-size:13.4px;color:var(--ink-2)}
+.act .tagline{font-size:11.6px;color:var(--muted);margin-top:4px}
+details.q{border:1px solid var(--ring);border-radius:11px;margin-bottom:9px;
+background:var(--plane);overflow:hidden}
+details.q>summary{list-style:none;cursor:pointer;padding:13px 16px;display:flex;
+align-items:center;gap:11px;font-size:14px}
+details.q>summary::-webkit-details-marker{display:none}
+.badge{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;color:#fff;flex:none}
+.b-good{background:var(--good)} .b-warning{background:var(--warning);color:#3a2a00}
+.b-serious{background:var(--serious);color:#3a1500} .b-critical{background:var(--critical)}
+.stitle{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stime{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.qbody{padding:0 16px 16px;border-top:1px solid var(--grid);margin-top:2px;padding-top:14px}
+.qbody .yours{font-size:13.4px;margin:0 0 12px}
+.tag{display:inline-block;font-size:11.6px;padding:2px 8px;border-radius:5px;
+background:var(--track);margin-right:5px}
+.tag.bad{background:rgba(208,59,59,.13);color:var(--critical)}
+.tag.ok{background:rgba(12,163,12,.13);color:var(--good)}
+.qbody h5{margin-top:13px}
+.qbody p.x{font-size:13.4px;color:var(--ink-2);margin:0}
+.short{background:var(--surface-1);border:1px solid var(--ring);border-left:3px solid var(--warning);
+border-radius:9px;padding:11px 13px;margin-top:13px}
+.short h6{margin:0 0 4px;font-size:12.6px}
+.short h6 span{color:var(--muted);font-weight:400;font-size:11.4px;margin-left:6px}
+.short p{margin:0;font-size:13.1px;color:var(--ink-2)}
+.tbtn{border:1px solid var(--ring);background:var(--surface-1);color:var(--ink-2);
+border-radius:8px;padding:6px 11px;font-size:12.5px}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+</style></head><body>
+
+<!-- ══ START ══ -->
+<section class="screen on" id="start"><div class="wrap">
+<div class="topbar"><div><h1>Daily 20</h1>
+<p class="muted">Four sections, five questions each, twenty-five minutes.</p></div>
+<button class="tbtn themebtn">◐ Theme</button></div>
+<div class="card">
+<h2>Before you start</h2>
+<div class="plan">
+<div class="pl"><div class="n">Data Interpretation</div><div class="t">5 questions · 8:00</div></div>
+<div class="pl"><div class="n">Quantitative</div><div class="t">5 questions · 6:00</div></div>
+<div class="pl"><div class="n">Reasoning</div><div class="t">5 questions · 6:00</div></div>
+<div class="pl"><div class="n">English</div><div class="t">5 questions · 5:00</div></div>
+</div>
+<ul class="rules">
+<li><b>Each section is timed on its own.</b> Spare time in one section does not carry into the next.</li>
+<li><b>Answers lock immediately.</b> Once you confirm a question you cannot return to it — so commit before you move on.</li>
+<li><b>No negative marking.</b> A blank scores the same as a wrong answer, so never leave one.</li>
+<li><b>You are not being graded.</b> This is a diagnostic — the report afterwards is the point.</li>
+</ul>
+<div class="row"><button class="cta" id="go">Start — 25:00</button>
+<button class="ghost" id="seedemo">Skip to a sample report</button></div>
+</div></div></section>
+
+<!-- ══ TEST ══ -->
+<section class="screen" id="test">
+<div class="bar"><div class="barin">
+<span class="sname" id="sname"></span><span class="dots" id="dots"></span>
+<span class="qcount" id="qcount"></span>
+<div style="margin-left:auto;text-align:right"><div class="clock" id="clock">00:00</div>
+<div class="clocklab">Section time</div></div>
+</div></div>
+<div class="wrap wide">
+<div id="chartslot"></div>
+<div class="card"><p class="qtext" id="qtext"></p><div id="opts"></div>
+<div class="foot"><button class="cta" id="lock" disabled>Lock answer →</button>
+<button class="ghost" id="skip">Skip</button>
+<span class="warnnote">Locking is final.<br>You cannot come back to this question.</span>
+</div></div></div></section>
+
+<!-- ══ TRANSITION ══ -->
+<section class="screen" id="transition"><div class="wrap"><div class="card tr">
+<div class="big" id="trname"></div>
+<p class="muted" id="trnote" style="margin:0"></p>
+<div class="trstat" id="trstat"></div>
+<button class="cta" id="trnext"></button>
+</div></div></section>
+
+<!-- ══ REPORT ══ -->
+<section class="screen" id="report"><div class="wrap wide">
+<div class="topbar"><div><h1>What just happened</h1>
+<p class="muted" id="hero" style="font-size:17px;color:var(--ink)"></p></div>
+<button class="tbtn themebtn">◐ Theme</button></div>
+
+<div class="card"><h2>Section scores</h2>
+<p class="muted" style="margin-bottom:12px">Scored per section, not per topic — five questions a
+section is enough to mean something, whereas 15 of the 16 topics get a single question, where a
+score could only ever read 0 or 100.</p>
+<div class="scores" id="scores"></div>
+<div class="slegend" id="slegend"></div>
+<p class="cap" style="margin-top:14px"><b>Score</b> = questions answered correctly <i>and</i> inside
+their time budget, with half credit where the answer was right but slow — the method is there, the
+clock isn't. <b>Pace</b> is time spent against time budgeted, so above 100% means you ran over.</p></div>
+
+<div class="card"><h5>Every question, classified</h5>
+<div class="tiles" id="tiles"></div>
+<table><thead><tr><th>Section</th><th>Right</th><th>Clock</th><th>Read</th></tr></thead>
+<tbody id="sectbl"></tbody></table>
+<p class="cap" style="margin-top:14px">Five questions a section is too few to call a topic strong or
+weak on its own. These verdicts are about individual questions; topic-level mastery builds up over
+repeated sessions.</p></div>
+
+<div class="card"><h2>What stands out</h2>
+<p class="muted" style="margin-bottom:4px">Patterns across the whole paper — not a list of mistakes.</p>
+<ul class="finds" id="finds"></ul></div>
+
+<div class="card"><h2>Do these next</h2>
+<p class="muted" style="margin-bottom:4px" id="actnote"></p>
+<ol class="act" id="acts"></ol></div>
+
+<div class="card"><h2>Every question</h2>
+<p class="muted">Open any one for the worked method, why your option was tempting, and the
+faster route.</p><div id="detail"></div>
+<div class="row"><button class="ghost" id="again">← Back to start</button></div>
+</div></div></section>
+
+<script>
+const SECTIONS = [{"key": "di", "name": "Data Interpretation", "budget": 480, "direction": "The bar chart below shows the number of units sold (in thousands) of two products, A and B, by a company over five years. Study the chart and answer the questions that follow.", "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 660 380\" width=\"100%\" role=\"img\" aria-label=\"Grouped bar chart of units sold for Product A and Product B from 2019 to 2023\"><style>\n  .s1{fill:#2a78d6} .s2{fill:#eb6834}\n  .grid{stroke:#e1e0d9;stroke-width:1} .base{stroke:#c3c2b7;stroke-width:1}\n  .tick,.cat,.leg,.axt{font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif}\n  .tick{font-size:11px;fill:#898781;font-variant-numeric:tabular-nums}\n  .cat{font-size:12px;fill:#52514e} .leg{font-size:12.5px;fill:#52514e}\n  .axt{font-size:11.5px;fill:#898781}\n  .bg{fill:#fcfcfb}\n:root[data-theme=\"dark\"] &{\n  .s1{fill:#3987e5} .s2{fill:#d95926}\n  .grid{stroke:#2c2c2a} .base{stroke:#383835}\n  .tick{fill:#898781} .cat,.leg{fill:#c3c2b7} .axt{fill:#898781}\n  .bg{fill:#1a1a19}\n}</style><rect class=\"bg\" width=\"660\" height=\"380\"/><line class=\"base\" x1=\"58\" y1=\"328.0\" x2=\"642\" y2=\"328.0\"/><text class=\"tick\" x=\"48\" y=\"332.0\" text-anchor=\"end\">0</text><line class=\"grid\" x1=\"58\" y1=\"297.6\" x2=\"642\" y2=\"297.6\"/><text class=\"tick\" x=\"48\" y=\"301.6\" text-anchor=\"end\">10</text><line class=\"grid\" x1=\"58\" y1=\"267.1\" x2=\"642\" y2=\"267.1\"/><text class=\"tick\" x=\"48\" y=\"271.1\" text-anchor=\"end\">20</text><line class=\"grid\" x1=\"58\" y1=\"236.7\" x2=\"642\" y2=\"236.7\"/><text class=\"tick\" x=\"48\" y=\"240.7\" text-anchor=\"end\">30</text><line class=\"grid\" x1=\"58\" y1=\"206.2\" x2=\"642\" y2=\"206.2\"/><text class=\"tick\" x=\"48\" y=\"210.2\" text-anchor=\"end\">40</text><line class=\"grid\" x1=\"58\" y1=\"175.8\" x2=\"642\" y2=\"175.8\"/><text class=\"tick\" x=\"48\" y=\"179.8\" text-anchor=\"end\">50</text><line class=\"grid\" x1=\"58\" y1=\"145.3\" x2=\"642\" y2=\"145.3\"/><text class=\"tick\" x=\"48\" y=\"149.3\" text-anchor=\"end\">60</text><line class=\"grid\" x1=\"58\" y1=\"114.9\" x2=\"642\" y2=\"114.9\"/><text class=\"tick\" x=\"48\" y=\"118.9\" text-anchor=\"end\">70</text><line class=\"grid\" x1=\"58\" y1=\"84.4\" x2=\"642\" y2=\"84.4\"/><text class=\"tick\" x=\"48\" y=\"88.4\" text-anchor=\"end\">80</text><line class=\"grid\" x1=\"58\" y1=\"54.0\" x2=\"642\" y2=\"54.0\"/><text class=\"tick\" x=\"48\" y=\"58.0\" text-anchor=\"end\">90</text><path class=\"s1\" d=\"M81.4,328.0 L81.4,210.2 Q81.4,206.2 85.4,206.2 L111.4,206.2 Q115.4,206.2 115.4,210.2 L115.4,328.0 Z\"><title>1 · 40k</title></path><path class=\"s2\" d=\"M117.4,328.0 L117.4,240.7 Q117.4,236.7 121.4,236.7 L147.4,236.7 Q151.4,236.7 151.4,240.7 L151.4,328.0 Z\"><title>2 · 30k</title></path><text class=\"cat\" x=\"116.4\" y=\"350\" text-anchor=\"middle\">2019</text><path class=\"s1\" d=\"M198.2,328.0 L198.2,164.6 Q198.2,160.6 202.2,160.6 L228.2,160.6 Q232.2,160.6 232.2,164.6 L232.2,328.0 Z\"><title>1 · 55k</title></path><path class=\"s2\" d=\"M234.2,328.0 L234.2,225.4 Q234.2,221.4 238.2,221.4 L264.2,221.4 Q268.2,221.4 268.2,225.4 L268.2,328.0 Z\"><title>2 · 35k</title></path><text class=\"cat\" x=\"233.2\" y=\"350\" text-anchor=\"middle\">2020</text><path class=\"s1\" d=\"M315.0,328.0 L315.0,179.8 Q315.0,175.8 319.0,175.8 L345.0,175.8 Q349.0,175.8 349.0,179.8 L349.0,328.0 Z\"><title>1 · 50k</title></path><path class=\"s2\" d=\"M351.0,328.0 L351.0,149.3 Q351.0,145.3 355.0,145.3 L381.0,145.3 Q385.0,145.3 385.0,149.3 L385.0,328.0 Z\"><title>2 · 60k</title></path><text class=\"cat\" x=\"350.0\" y=\"350\" text-anchor=\"middle\">2021</text><path class=\"s1\" d=\"M431.8,328.0 L431.8,118.9 Q431.8,114.9 435.8,114.9 L461.8,114.9 Q465.8,114.9 465.8,118.9 L465.8,328.0 Z\"><title>1 · 70k</title></path><path class=\"s2\" d=\"M467.8,328.0 L467.8,164.6 Q467.8,160.6 471.8,160.6 L497.8,160.6 Q501.8,160.6 501.8,164.6 L501.8,328.0 Z\"><title>2 · 55k</title></path><text class=\"cat\" x=\"466.8\" y=\"350\" text-anchor=\"middle\">2022</text><path class=\"s1\" d=\"M548.6,328.0 L548.6,73.2 Q548.6,69.2 552.6,69.2 L578.6,69.2 Q582.6,69.2 582.6,73.2 L582.6,328.0 Z\"><title>1 · 85k</title></path><path class=\"s2\" d=\"M584.6,328.0 L584.6,134.1 Q584.6,130.1 588.6,130.1 L614.6,130.1 Q618.6,130.1 618.6,134.1 L618.6,328.0 Z\"><title>2 · 65k</title></path><text class=\"cat\" x=\"583.6\" y=\"350\" text-anchor=\"middle\">2023</text><text class=\"axt\" x=\"350.0\" y=\"372\" text-anchor=\"middle\">Year</text><text class=\"axt\" transform=\"translate(15,191.0) rotate(-90)\" text-anchor=\"middle\">Units sold (thousands)</text><rect class=\"s1\" x=\"58\" y=\"20\" width=\"11\" height=\"11\" rx=\"3\"/><text class=\"leg\" x=\"75\" y=\"30\">Product A</text><rect class=\"s2\" x=\"146.60000000000002\" y=\"20\" width=\"11\" height=\"11\" rx=\"3\"/><text class=\"leg\" x=\"163.60000000000002\" y=\"30\">Product B</text></svg>", "questions": [{"id": "di.barchart.001.q1", "topic": "Bar Charts", "concept": "reading and totalling all bars", "prerequisite_concept": "reading a value off a grouped bar chart", "method_tag": "column-wise totalling", "question_text": "What is the total number of units (in thousands) sold across both products over the five years?", "options": ["300", "545", "245", "535"], "answer": "B", "explanation": "Product A: 40 + 55 + 50 + 70 + 85 = 300. Product B: 30 + 35 + 60 + 55 + 65 = 245. Total = 300 + 245 = 545 thousand units.", "distractor_rationale": {"A": "Totalled only Product A and stopped, missing the second series entirely.", "C": "Totalled only Product B.", "D": "Correct method with an arithmetic slip of 10 in one of the two column sums."}, "shortcut": {"name": "Sum each series, then add once", "how": "Add each product's row separately rather than year-by-year pairs. Two clean sums are faster and far less error-prone than five additions followed by a sixth, and the sub-totals get reused by later questions in the set.", "saves_seconds": 25}, "difficulty": 2, "expected_time_seconds": 75, "shortcut_available": true, "section": "di", "set_id": "di.barchart.001"}, {"id": "di.barchart.001.q2", "topic": "Bar Charts", "concept": "percentage growth versus absolute growth", "prerequisite_concept": "percentage increase over a base", "method_tag": "compare increase-to-base ratios", "question_text": "In which year was the percentage increase in total sales over the previous year the highest?", "options": ["2020", "2021", "2022", "2023"], "answer": "A", "explanation": "Yearly totals are 70, 90, 110, 125, 150. The increases are 20, 20, 15 and 25 on bases of 70, 90, 110 and 125, giving 28.6%, 22.2%, 13.6% and 20.0%. The highest is 2020 at 28.6%.", "distractor_rationale": {"D": "The classic trap. 2023 has the largest absolute rise (25), but on the largest base, so its percentage is only 20%.", "B": "Same absolute rise as 2020 (20 units) but on a bigger base (90 against 70), so a smaller percentage — picked by comparing bar heights instead of ratios.", "C": "The smallest increase on almost the largest base; lowest of the four."}, "shortcut": {"name": "Compare fractions, never compute percentages", "how": "Write each year as increase/base — 20/70, 20/90, 15/110, 25/125 — and compare directly. Equal numerators mean the smaller base wins; 25/125 is visibly 1/5 while 20/70 is nearly 2/7. No division to two decimal places is ever needed.", "saves_seconds": 45}, "difficulty": 4, "expected_time_seconds": 110, "shortcut_available": true, "section": "di", "set_id": "di.barchart.001"}, {"id": "di.barchart.001.q3", "topic": "Bar Charts", "concept": "a part as a percentage of the correct whole", "prerequisite_concept": "identifying the denominator", "method_tag": "name the whole before dividing", "question_text": "Sales of Product B in 2021 form approximately what percentage of the total sales of Product B across all five years?", "options": ["20%", "27.3%", "24.5%", "54.5%"], "answer": "C", "explanation": "Product B sold 60 thousand units in 2021 against a five-year Product B total of 245 thousand. 60/245 = 24.49%, or about 24.5%.", "distractor_rationale": {"A": "Assumed each of the five years contributes an equal one-fifth share.", "B": "Divided by 220, a mis-added Product B total.", "D": "Used that year's combined total (110) as the denominator instead of Product B's five-year total. The single most common DI error — wrong whole."}, "shortcut": {"name": "Underline the denominator first", "how": "Before any division, say the whole out loud — here \"Product B, all five years\". Most marks lost in DI are lost to the wrong denominator, not to arithmetic, and this habit costs two seconds.", "saves_seconds": 20}, "difficulty": 3, "expected_time_seconds": 85, "shortcut_available": true, "section": "di", "set_id": "di.barchart.001"}, {"id": "di.barchart.001.q4", "topic": "Bar Charts", "concept": "ratio of two bars in the same year", "prerequisite_concept": "simplifying a ratio by the HCF", "method_tag": "divide by the HCF", "question_text": "What is the ratio of Product A sales to Product B sales in 2022?", "options": ["11:14", "7:6", "5:4", "14:11"], "answer": "D", "explanation": "In 2022, Product A sold 70 thousand and Product B 55 thousand. The ratio is 70:55, and dividing both by their HCF of 5 gives 14:11.", "distractor_rationale": {"A": "The correct ratio written in reverse — B to A rather than A to B.", "B": "Read Product B as 60 instead of 55, giving 70:60 = 7:6.", "C": "Rounded both bars to the nearest 10 before simplifying."}, "shortcut": {"name": "Check the order named in the question", "how": "Ratio questions almost always ship the reversed answer as an option. Read the order in the question stem last, immediately before selecting, so the reversal trap cannot catch you.", "saves_seconds": 10}, "difficulty": 2, "expected_time_seconds": 55, "shortcut_available": true, "section": "di", "set_id": "di.barchart.001"}, {"id": "di.barchart.001.q5", "topic": "Bar Charts", "concept": "comparing two series across categories", "prerequisite_concept": "reading paired bars", "method_tag": "visual scan for crossings", "question_text": "In how many of the five years did Product B outsell Product A?", "options": ["0", "1", "2", "3"], "answer": "B", "explanation": "Comparing the pairs: 2019 (30 vs 40), 2020 (35 vs 55), 2022 (55 vs 70) and 2023 (65 vs 85) all favour Product A. Only in 2021 does B (60) exceed A (50). The answer is one year.", "distractor_rationale": {"A": "Missed 2021, the only year the bars swap order.", "C": "Counted 2022 as well, where the bars are close (55 against 70) but A is still higher.", "D": "Counted every year where the two bars look similar in height rather than comparing them."}, "shortcut": {"name": "Scan for the swap, don't read values", "how": "You are looking for the years where the taller bar changes side. Read actual numbers only for pairs that look close. Reading all ten values wastes about 40 seconds on a question that is answerable by eye.", "saves_seconds": 40}, "difficulty": 1, "expected_time_seconds": 45, "shortcut_available": true, "section": "di", "set_id": "di.barchart.001"}]}, {"key": "quant", "name": "Quantitative", "budget": 360, "direction": null, "chart": null, "questions": [{"id": "quant.percentages.001", "section": "quant", "topic": "Percentages", "concept": "successive percentage change", "prerequisite_concept": "percentage as a multiplier", "method_tag": "multiplier chaining", "question_text": "A shopkeeper first raises the price of an article by 20%, then offers a 20% discount on the increased price. What is the net change in price?", "options": ["No change", "4% increase", "4% decrease", "2% decrease"], "answer": "C", "explanation": "Work in multipliers, not in added percentages. A 20% rise multiplies the price by 1.20; a 20% discount multiplies by 0.80. Net multiplier = 1.20 × 0.80 = 0.96, i.e. 96% of the original price — a 4% decrease.", "distractor_rationale": {"A": "Added +20% and −20% to get zero. Percentages taken on different bases never cancel.", "B": "Right magnitude, wrong direction — assumed the rise wins because it came first.", "D": "Averaged the two changes instead of chaining them."}, "shortcut": {"name": "a + b + ab/100", "how": "For two successive changes of a% and b% (use negatives for a fall), the net change is a + b + ab/100. Here: 20 − 20 − 400/100 = −4%. No multiplication of decimals.", "saves_seconds": 25}, "difficulty": 2, "expected_time_seconds": 45, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "quant.timework.002", "section": "quant", "topic": "Time and Work", "concept": "combined work rate with one worker leaving", "prerequisite_concept": "work rate as reciprocal of time", "method_tag": "LCM unit method", "question_text": "A can complete a piece of work in 12 days and B in 15 days. They work together for 4 days, after which A leaves. How many more days will B need to finish the remaining work?", "options": ["9 days", "15 days", "5 days", "6 days"], "answer": "D", "explanation": "Let the total work be LCM(12, 15) = 60 units. A does 60/12 = 5 units a day, B does 60/15 = 4 units a day. Together they do 9 units a day, so in 4 days they complete 36 units. Remaining = 60 − 36 = 24 units. B alone needs 24 ÷ 4 = 6 days.", "distractor_rationale": {"A": "Divided the work already done (36 units) by B's rate instead of the work remaining.", "B": "Computed how long B would take for the whole job, ignoring the 4 days already worked.", "C": "Subtracted 4 from 9 (the combined daily rate) — mixing up units of work with days."}, "shortcut": {"name": "LCM as total work", "how": "Never use fractions like 1/12 + 1/15. Set total work = LCM of the times, so every rate becomes a whole number. All arithmetic stays in integers.", "saves_seconds": 30}, "difficulty": 3, "expected_time_seconds": 75, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "quant.profitloss.003", "section": "quant", "topic": "Profit and Loss", "concept": "equal gain and loss percent on equal selling prices", "prerequisite_concept": "cost price from selling price and profit percent", "method_tag": "x²/100 identity", "question_text": "A man sells two articles at Rs. 1000 each. On one he gains 20% and on the other he loses 20%. What is his overall result on the two transactions?", "options": ["Loss of 4%", "Neither profit nor loss", "Profit of 4%", "Loss of 2%"], "answer": "A", "explanation": "The selling prices are equal but the cost prices are not. CP₁ = 1000/1.2 = Rs. 833.33 and CP₂ = 1000/0.8 = Rs. 1250, so total CP = Rs. 2083.33 against a total SP of Rs. 2000. Loss = Rs. 83.33, which is 83.33/2083.33 = 4% of cost.", "distractor_rationale": {"B": "Assumed +20% and −20% cancel. They are applied to different cost prices, so they cannot.", "C": "Correct magnitude, wrong sign — this situation is always a loss, never a gain.", "D": "Halved the 4% figure, or averaged the two percentages."}, "shortcut": {"name": "Always a loss of x²/100 %", "how": "When two items sell for the same price with a gain of x% on one and a loss of x% on the other, the result is always a loss of x²/100 percent. Here 20²/100 = 4% loss. Answerable in about five seconds with no cost prices computed at all.", "saves_seconds": 50}, "difficulty": 3, "expected_time_seconds": 60, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "quant.averages.004", "section": "quant", "topic": "Average", "concept": "effect of replacement on a mean", "prerequisite_concept": "mean as total divided by count", "method_tag": "total-change method", "question_text": "The average age of a group of 8 men increases by 2 years when two women replace two men aged 21 and 23. What is the average age of the two women?", "options": ["22 years", "24 years", "30 years", "60 years"], "answer": "C", "explanation": "The group size stays at 8, so an increase of 2 in the average means the total age rose by 8 × 2 = 16 years. The two men removed contributed 21 + 23 = 44 years, so the two women contribute 44 + 16 = 60 years. Their average is 60/2 = 30.", "distractor_rationale": {"A": "Gave the average of the two men who left (44/2), never applying the increase.", "B": "Added the 2-year rise to the men's average instead of scaling it by the group size.", "D": "Stopped at the combined age of the two women without dividing by 2."}, "shortcut": {"name": "Change in total = n × change in average", "how": "Never rebuild the original ages. The only quantity that matters is the change in the total, which is group size × change in average. Add it to what left.", "saves_seconds": 35}, "difficulty": 3, "expected_time_seconds": 70, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "quant.trains.005", "section": "quant", "topic": "Problems on Trains", "concept": "relative speed in opposite directions", "prerequisite_concept": "km/h to m/s conversion", "method_tag": "add speeds, add lengths", "question_text": "Two trains of length 120 m and 180 m run on parallel tracks in opposite directions at 54 km/h and 36 km/h. How long do they take to cross each other completely?", "options": ["20 seconds", "30 seconds", "60 seconds", "12 seconds"], "answer": "D", "explanation": "Moving in opposite directions, the speeds add: 54 + 36 = 90 km/h = 90 × 5/18 = 25 m/s. To cross completely, the trains cover the sum of their lengths, 120 + 180 = 300 m. Time = 300/25 = 12 seconds.", "distractor_rationale": {"A": "Used only the faster train's speed (54 km/h = 15 m/s), ignoring that both are moving.", "B": "Used only the slower train's speed (36 km/h = 10 m/s).", "C": "Subtracted the speeds. That is the same-direction formula — here they close on each other, so the speeds add."}, "shortcut": {"name": "5/18 on the sum, not on each", "how": "Add the speeds in km/h first, convert once with 5/18, then divide the combined length. Converting each train separately doubles the arithmetic and is where the sign error usually creeps in.", "saves_seconds": 20}, "difficulty": 3, "expected_time_seconds": 75, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}]}, {"key": "reasoning", "name": "Reasoning", "budget": 360, "direction": null, "chart": null, "questions": [{"id": "reasoning.bloodrel.001", "section": "reasoning", "topic": "Blood Relations", "concept": "resolving a nested relational phrase", "prerequisite_concept": "reading a relation from the speaker's viewpoint", "method_tag": "innermost-phrase-first", "question_text": "Pointing to a photograph, a man said, \"I have no brother or sister, but that man's father is my father's son.\" Whose photograph was he looking at?", "options": ["His son", "His own", "His father", "His nephew"], "answer": "A", "explanation": "Resolve the innermost phrase first. \"My father's son\" — and the speaker has no brothers — can only be the speaker himself. So the sentence reads: that man's father is me. If the speaker is that man's father, the man in the photograph is the speaker's son.", "distractor_rationale": {"B": "Stopped one step early. \"My father's son = myself\" is correct, but it describes the photographed man's father, not the photographed man.", "C": "Read the relation backwards — made the speaker the son rather than the father.", "D": "Assumed a brother exists, which the first clause explicitly rules out."}, "shortcut": {"name": "Substitute inwards, then read once", "how": "Replace the innermost possessive phrase with a single person, rewrite the sentence, and only then answer. Almost every error in this topic is stopping at the substitution instead of re-reading the rewritten sentence.", "saves_seconds": 20}, "difficulty": 3, "expected_time_seconds": 60, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "reasoning.coding.002", "section": "reasoning", "topic": "Coding-Decoding", "concept": "uniform forward letter shift", "prerequisite_concept": "alphabet position", "method_tag": "verify shift on two letters", "question_text": "In a certain code, TEACHER is written as VGCEJGT. How is STUDENT written in that code?", "options": ["TUVEFOU", "UVWEGPV", "UVWFGPV", "UVWFGPT"], "answer": "C", "explanation": "T→V, E→G, A→C: every letter moves two places forward. Applying +2 to STUDENT: S→U, T→V, U→W, D→F, E→G, N→P, T→V, giving UVWFGPV.", "distractor_rationale": {"A": "Applied a shift of +1 instead of +2 — the shift was assumed rather than checked.", "B": "Shifted D by +1 instead of +2. A single-letter slip in the middle of the word.", "D": "Left the final T unshifted, most likely from losing track while counting."}, "shortcut": {"name": "Two letters in, then commit", "how": "Confirm the shift on the first two letters of the key word only, then apply it mechanically. Checking all seven letters of the key costs 20 seconds and adds nothing.", "saves_seconds": 20}, "difficulty": 2, "expected_time_seconds": 50, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "reasoning.syllogism.003", "section": "reasoning", "topic": "Syllogism", "concept": "what follows from a universal plus a particular", "prerequisite_concept": "converting 'some A are B'", "method_tag": "conversion rule", "question_text": "Statements: All pens are books. Some books are pencils.\nConclusions: I. Some pens are pencils.  II. Some pencils are books.\nWhich conclusion follows?", "options": ["Only I follows", "Only II follows", "Both I and II follow", "Neither follows"], "answer": "B", "explanation": "Conclusion II is simply the converse of the second statement: \"some books are pencils\" always yields \"some pencils are books\". Conclusion I does not follow — the books that happen to be pencils need not be among the books that are pens, so pens and pencils may not overlap at all.", "distractor_rationale": {"A": "Chained the two statements as if both were universal. A particular statement cannot carry a conclusion across to a third term.", "C": "Accepted I on the strength of II being valid, without testing I separately.", "D": "Missed that a 'some' statement is always convertible."}, "shortcut": {"name": "'Some A are B' ⇒ 'Some B are A', always", "how": "Conversion of a particular statement is free — mark it valid on sight. Then test only the conclusions that join two terms which no single statement links.", "saves_seconds": 30}, "difficulty": 3, "expected_time_seconds": 65, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "reasoning.direction.004", "section": "reasoning", "topic": "Direction Sense Test", "concept": "net displacement after successive turns", "prerequisite_concept": "left and right turns relative to current heading", "method_tag": "track net east-west and north-south only", "question_text": "A man walks 5 km north, turns right and walks 3 km, turns right again and walks 5 km, then turns left and walks 4 km. How far is he from his starting point, and in which direction?", "options": ["3 km east", "9 km east", "7 km north", "7 km east"], "answer": "D", "explanation": "Take the start as the origin. North 5 puts him at (0, 5). A right turn now faces east, so 3 km gives (3, 5). Another right faces south, so 5 km gives (3, 0) — the northward movement is fully cancelled. A left now faces east again, so 4 km gives (7, 0). He is 7 km due east of the start.", "distractor_rationale": {"A": "Dropped the final 4 km leg, or treated the last turn as heading back west.", "B": "Added 5 + 4 — mixed a northward distance into the eastward total.", "C": "Kept the original bearing, not noticing the two right turns cancelled the northward leg."}, "shortcut": {"name": "Two running totals, no diagram", "how": "Keep one number for east-minus-west and one for north-minus-south, updating as you read. Only draw a figure if the answer needs a diagonal distance (then use Pythagoras). Here north-south nets to zero, so the answer is the east total.", "saves_seconds": 30}, "difficulty": 3, "expected_time_seconds": 70, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "reasoning.series.005", "section": "reasoning", "topic": "Number Series", "concept": "series with a constant second difference", "prerequisite_concept": "first differences", "method_tag": "n(n+1) product pattern", "question_text": "Find the next term: 2, 6, 12, 20, 30, ?", "options": ["42", "36", "40", "44"], "answer": "A", "explanation": "The differences are 4, 6, 8, 10 — rising by 2 each time, so the next difference is 12 and the next term is 30 + 12 = 42. Equivalently the series is n(n+1): 1×2, 2×3, 3×4, 4×5, 5×6, and then 6×7 = 42.", "distractor_rationale": {"B": "Added 6, reusing an earlier difference instead of continuing the pattern.", "C": "Added 10 again, treating the differences as constant from that point.", "D": "Added 14, overshooting the step by one increment."}, "shortcut": {"name": "Differences first, products second", "how": "Always write the first differences before anything else — it resolves most series in five seconds. If the differences are not obvious, test n(n+1) and n²±1, which between them cover a large share of placement series questions.", "saves_seconds": 15}, "difficulty": 2, "expected_time_seconds": 45, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}]}, {"key": "english", "name": "English", "budget": 300, "direction": null, "chart": null, "questions": [{"id": "english.errors.001", "section": "english", "topic": "Spotting Errors", "concept": "verb agreement inside 'one of the ...' relative clauses", "prerequisite_concept": "identifying the antecedent of a relative pronoun", "method_tag": "find what 'who' points to", "question_text": "Identify the part containing the error:\n(A) One of the students  (B) who has been working  (C) in this laboratory  (D) is my cousin.", "options": ["Part A", "Part B", "Part C", "Part D"], "answer": "B", "explanation": "In the pattern \"one of the + plural noun + who…\", the relative pronoun refers to the plural noun, not to \"one\". \"Who\" here stands for \"students\", so the verb must be plural: \"who have been working\". Part D is correct as written, because the main subject really is the singular \"one\".", "distractor_rationale": {"A": "\"One of the students\" is correctly formed — the plural noun after \"one of the\" is required.", "C": "A prepositional phrase with no verb in it; it cannot carry an agreement error.", "D": "The most common wrong pick. \"Is\" looks plural-adjacent because \"students\" sits nearby, but the main subject is \"one\", so the singular verb is right."}, "shortcut": {"name": "Two verbs, two different subjects", "how": "Sentences of the form \"one of the X who … VERB1 … VERB2\" always have two subjects: the relative verb takes plural X, the main verb takes singular \"one\". Check each verb against its own subject and the question resolves without reading for meaning.", "saves_seconds": 20}, "difficulty": 4, "expected_time_seconds": 55, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "english.improve.002", "section": "english", "topic": "Sentence Improvement", "concept": "parallel structure in a list", "prerequisite_concept": "gerund and infinitive forms", "method_tag": "match the form of the other list items", "question_text": "Choose the option that best replaces the underlined part:\nShe likes reading, __to swim__, and cycling.", "options": ["to swim", "swimming", "swim", "having swum"], "answer": "B", "explanation": "Items joined in a list must share the same grammatical form. \"Reading\" and \"cycling\" are gerunds, so the middle item must be a gerund too: \"swimming\".", "distractor_rationale": {"A": "The unchanged infinitive, which is what breaks the parallelism in the first place.", "C": "A bare verb, matching neither of the surrounding gerunds.", "D": "A perfect gerund. Correct in form but wrong in tense, implying the swimming is finished."}, "shortcut": {"name": "Read only the list, ignore the sentence", "how": "Strip the sentence down to its list — reading / X / cycling — and pick the option whose ending matches the others. You never need to parse the full sentence.", "saves_seconds": 15}, "difficulty": 2, "expected_time_seconds": 40, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "english.words.003", "section": "english", "topic": "Selecting Words", "concept": "fixed preposition collocation", "prerequisite_concept": "adjective + preposition pairings", "method_tag": "memorised collocation", "question_text": "Fill in the blank: The manager was not averse ______ the proposal.", "options": ["from", "with", "to", "against"], "answer": "C", "explanation": "\"Averse\" always takes \"to\": averse to something. The sentence means the manager had no objection to the proposal.", "distractor_rationale": {"A": "Pulled across from \"different from\" and \"averse\"'s look-alike \"avert from\".", "B": "A general-purpose preposition that sounds acceptable aloud but is not the fixed pairing.", "D": "Chosen for meaning rather than form — \"against\" matches the sense of opposition but never follows \"averse\"."}, "shortcut": {"name": "Learn the pair, not the sentence", "how": "Preposition questions test a fixed list, not reasoning. Memorise the high-frequency placement set — averse to, adhere to, object to, capable of, devoid of, indifferent to, prone to — and these become five-second questions.", "saves_seconds": 20}, "difficulty": 3, "expected_time_seconds": 35, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "english.correction.004", "section": "english", "topic": "Sentence Correction", "concept": "backshift of tense in reported speech", "prerequisite_concept": "direct versus indirect speech", "method_tag": "past reporting verb forces backshift", "question_text": "Choose the correct form: He said that he ______ the next day.", "options": ["will come", "shall come", "is coming", "would come"], "answer": "D", "explanation": "The reporting verb \"said\" is in the past, so the reported verb shifts back one tense: will becomes would. Note that \"tomorrow\" also becomes \"the next day\" in reported speech, which the sentence already reflects.", "distractor_rationale": {"A": "The direct-speech form, left unshifted after a past reporting verb.", "B": "Same failure to backshift, with an additional first-person auxiliary used for \"he\".", "C": "Present continuous, which contradicts the past reporting verb."}, "shortcut": {"name": "Check the reporting verb first", "how": "Look at the reporting verb before reading the rest. Past reporting verb (said, told, asked) means everything after it shifts back one tense. Present reporting verb (says, tells) means nothing shifts at all.", "saves_seconds": 15}, "difficulty": 2, "expected_time_seconds": 40, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}, {"id": "english.onewordsub.005", "section": "english", "topic": "One Word Substitutes", "concept": "belief versus knowledge distinctions", "prerequisite_concept": "Greek prefixes and roots", "method_tag": "root decomposition", "question_text": "One who is not certain whether God exists:", "options": ["Agnostic", "Atheist", "Theist", "Heretic"], "answer": "A", "explanation": "An agnostic holds that the existence of God is unknown or unknowable — a position about knowledge. That is exactly \"not certain\".", "distractor_rationale": {"B": "The most frequent confusion. An atheist positively denies God's existence; that is certainty, not doubt.", "C": "A theist believes God exists — the opposite pole, also a position of certainty.", "D": "A heretic holds views contrary to established doctrine, which says nothing about certainty either way."}, "shortcut": {"name": "a- + gnosis = without knowledge", "how": "Split the word at its root. Agnostic breaks into a- (without) + gnosis (knowledge), so it is about not knowing. Atheist breaks into a- + theos (god), so it is about not believing. The root tells you which axis the word sits on.", "saves_seconds": 15}, "difficulty": 3, "expected_time_seconds": 30, "source": "authored", "calibration": "model_estimate", "shortcut_available": true}]}];
+const L = "ABCD";
+let si=0, qi=0, answers={}, tLeft=0, tick=null, qStart=0, secStart=0, secUsed={};
+
+const $ = s => document.querySelector(s);
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+function show(id){ document.querySelectorAll('.screen').forEach(e=>e.classList.remove('on'));
+  $(id).classList.add('on'); window.scrollTo(0,0); }
+
+/* ── test ─────────────────────────────────────────── */
+function startSection(){
+  const S = SECTIONS[si];
+  tLeft = S.budget; secStart = Date.now(); qi = 0;
+  $('#chartslot').innerHTML = S.chart
+    ? `<div class="direction"><p>${S.direction}</p><div class="chartbox">${S.chart}</div></div>` : '';
+  clearInterval(tick);
+  tick = setInterval(()=>{ tLeft--; paintClock();
+    if(tLeft<=0){ clearInterval(tick); endSection(true); } },1000);
+  paintClock(); renderQ(); show('#test');
+}
+function paintClock(){
+  const c=$('#clock'); c.textContent=fmt(Math.max(tLeft,0));
+  c.className='clock'+(tLeft<=20?' crit':tLeft<=60?' warn':'');
+}
+function renderQ(){
+  const S=SECTIONS[si], q=S.questions[qi];
+  $('#sname').textContent=S.name;
+  $('#dots').innerHTML=S.questions.map((_,i)=>
+    `<span class="dot ${i<qi?'done':''} ${i===qi?'now':''}"></span>`).join('');
+  $('#qcount').textContent=`${qi+1} of ${S.questions.length}`;
+  $('#qtext').textContent=q.question_text;
+  $('#opts').innerHTML=q.options.map((o,i)=>
+    `<button class="opt" data-k="${L[i]}"><span class="k">${L[i]}</span>${o}</button>`).join('');
+  $('#lock').disabled=true; qStart=Date.now();
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); $('#lock').disabled=false; });
+}
+function commit(picked){
+  const S=SECTIONS[si], q=S.questions[qi];
+  answers[q.id]={picked, correct: picked===q.answer,
+                 t: Math.round((Date.now()-qStart)/1000), section:S.key};
+  if(qi < S.questions.length-1){ qi++; renderQ(); } else { clearInterval(tick); endSection(false); }
+}
+function endSection(expired){
+  const S=SECTIONS[si];
+  S.questions.forEach(q=>{ if(!answers[q.id])
+    answers[q.id]={picked:null,correct:false,t:0,section:S.key,unreached:true}; });
+  secUsed[S.key]=expired? S.budget : Math.round((Date.now()-secStart)/1000);
+  const got=S.questions.filter(q=>answers[q.id].correct).length;
+  $('#trname').textContent=`${S.name} complete`;
+  $('#trstat').innerHTML=
+    `<div><div class="v">${got}/${S.questions.length}</div><div class="l">Correct</div></div>
+     <div><div class="v">${fmt(secUsed[S.key])}</div><div class="l">Time used</div></div>
+     <div><div class="v">${fmt(Math.max(S.budget-secUsed[S.key],0))}</div><div class="l">Unused</div></div>`;
+  const nxt=SECTIONS[si+1];
+  $('#trnote').textContent = expired
+    ? 'Time ran out. Any questions you did not reach are recorded as unattempted.'
+    : 'This section is now locked.';
+  $('#trnext').textContent = nxt ? `Start ${nxt.name} → ${fmt(nxt.budget)}` : 'See your report →';
+  $('#trnext').onclick = ()=>{ si++; if(si<SECTIONS.length) startSection(); else report(); };
+  show('#transition');
+}
+$('#lock').onclick=()=>commit(document.querySelector('.opt.sel').dataset.k);
+$('#skip').onclick=()=>commit(null);
+
+/* ── report ───────────────────────────────────────── */
+const QUAD={
+ mastered:{lab:'Mastered',tone:'good',ico:'✓',blurb:'Right, and inside the time budget.'},
+ fragile:{lab:'Fragile',tone:'warning',ico:'◷',blurb:'Right — but slow enough that the real clock would have caught you.'},
+ careless:{lab:'Careless',tone:'serious',ico:'!',blurb:'Wrong, and answered far too fast to have worked it through.'},
+ gap:{lab:'Gap',tone:'critical',ico:'×',blurb:"Wrong after real effort. The method itself isn't there yet."},
+ unreached:{lab:'Not reached',tone:'critical',ico:'—',blurb:'The clock ran out before you got here.'}};
+function quadOf(a,q){
+  if(a.unreached||a.picked===null) return a.unreached?'unreached':'careless';
+  if(a.correct) return a.t<=q.expected_time_seconds?'mastered':'fragile';
+  return a.t < 0.5*q.expected_time_seconds ? 'careless' : 'gap';
+}
+function report(){
+  const all=[]; SECTIONS.forEach(S=>S.questions.forEach(q=>{
+    const a=answers[q.id]; all.push({q,a,S,quad:quadOf(a,q)}); }));
+  const c={}; Object.keys(QUAD).forEach(k=>c[k]=all.filter(x=>x.quad===k).length);
+
+  $('#tiles').innerHTML=['mastered','fragile','careless','gap'].map(k=>{
+    const Q=QUAD[k]; return `<div class="tile t-${Q.tone}"><div class="tnum">${c[k]}</div>
+    <div class="tlab">${Q.lab}</div><p>${Q.blurb}</p></div>`;}).join('');
+
+  /* headline — describe the shape, never lead with a score */
+  const hero = c.fragile>=3 ? 'You know more than the clock is letting you show.'
+    : c.careless>=3 ? "You're losing marks to speed, not to knowledge."
+    : c.gap>=5 ? 'There are real gaps to close before speed becomes the problem.'
+    : c.mastered>=15 ? 'Strong run. The remaining issues are narrow and fixable.'
+    : 'A mixed run — three different things are going on.';
+  $('#hero').textContent=hero;
+
+  /* ── section skill scores ──────────────────────────────
+     Only the section level has enough questions to carry a score at all:
+     5 per section, against 1 per topic for 15 of the 16 topics.
+     score = (mastered + half credit for fragile) / n
+     Fragile earns half because the method is there but the clock is not. */
+  const ORDER=['mastered','fragile','careless','gap','unreached'];
+  $('#scores').innerHTML=SECTIONS.map(S=>{
+    const rows=all.filter(x=>x.S.key===S.key), n=rows.length;
+    const m={}; ORDER.forEach(k=>m[k]=rows.filter(x=>x.quad===k).length);
+    const score=Math.round((m.mastered + 0.5*m.fragile)/n*100);
+    const got=rows.filter(x=>x.a.correct).length;
+    const exp=rows.reduce((s,x)=>s+x.q.expected_time_seconds,0);
+    const act=rows.reduce((s,x)=>s+x.a.t,0);
+    const pace=exp? Math.round(act/exp*100) : 0;
+    const mix=ORDER.filter(k=>m[k]).map(k=>
+      `<span class="m-${k}" style="flex:${m[k]}" title="${QUAD[k].lab}: ${m[k]}"></span>`).join('');
+    return `<div class="sc"><div class="top"><span class="nm">${S.name}</span>
+      <span class="val">${score}</span></div>
+      <div class="mix">${mix}</div>
+      <div class="kv"><span>Accuracy <b>${got}/${n}</b></span>
+      <span>Pace <b class="${pace>100?'over':''}">${pace}%</b></span></div></div>`;}).join('');
+  $('#slegend').innerHTML=['mastered','fragile','careless','gap']
+    .map(k=>`<span><i class="m-${k}"></i>${QUAD[k].lab}</span>`).join('');
+
+  $('#sectbl').innerHTML=SECTIONS.map(S=>{
+    const rows=all.filter(x=>x.S.key===S.key);
+    const got=rows.filter(x=>x.a.correct).length, used=secUsed[S.key]||0;
+    const frag=rows.filter(x=>x.quad==='fragile').length;
+    const care=rows.filter(x=>x.quad==='careless').length;
+    const un=rows.filter(x=>x.quad==='unreached').length;
+    const pct=Math.min(used/S.budget*100,100);
+    let note = un? `${un} question${un>1?'s':''} never reached.`
+      : pct>92 ? 'Ran right to the limit — no slack for a hard item.'
+      : care>=2 ? `${S.budget-used}s left unused, and ${care} answers lost to haste.`
+      : frag>=2 ? `Finished, but ${frag} answers came in over budget.`
+      : `Comfortable — ${S.budget-used}s to spare.`;
+    return `<tr><td><b>${S.name}</b></td><td class="n">${got}/${rows.length}</td>
+      <td><div class="mtrack"><span class="mbar" style="width:${pct.toFixed(0)}%"></span></div>
+      <span class="mtxt">${fmt(used)} of ${fmt(S.budget)}</span></td>
+      <td style="font-size:12.8px">${note}</td></tr>`;}).join('');
+
+  /* findings — patterns across questions, not per-question noise */
+  const finds=[];
+  SECTIONS.forEach(S=>{
+    const rows=all.filter(x=>x.S.key===S.key);
+    const f=rows.filter(x=>x.quad==='fragile'), ca=rows.filter(x=>x.quad==='careless');
+    if(f.length>=2){ const over=f.reduce((s,x)=>s+x.a.t-x.q.expected_time_seconds,0);
+      finds.push({tone:'warning',ico:'◷',h:`${S.name}: right method, ${over}s too slow`,
+      p:`${f.length} answers were correct but over budget. Nothing here is a knowledge problem — `
+       +`each of these has a shortcut you are not using yet.`}); }
+    if(ca.length>=2 && (secUsed[S.key]||0) < S.budget*0.75){
+      finds.push({tone:'serious',ico:'!',h:`${S.name}: you rushed with time in hand`,
+      p:`${ca.length} answers went in at well under half the expected time, and you still finished `
+       +`with ${fmt(S.budget-(secUsed[S.key]||0))} unused. Slowing down here is free marks.`}); }
+  });
+  /* repeated prerequisite = a root cause, not two separate mistakes */
+  const pre={}; all.filter(x=>x.quad==='gap').forEach(x=>{
+    (pre[x.q.prerequisite_concept]=pre[x.q.prerequisite_concept]||[]).push(x); });
+  Object.entries(pre).filter(([,v])=>v.length>=2).forEach(([k,v])=>
+    finds.push({tone:'critical',ico:'×',h:`Both errors trace back to one thing: ${k}`,
+    p:`${v.length} questions across the paper failed for the same underlying reason. Fixing the `
+     +`topics separately will not help — this is the thing to relearn.`}));
+  const mastered=all.filter(x=>x.quad==='mastered');
+  if(mastered.length) finds.push({tone:'good',ico:'✓',
+    h:`${mastered.length} questions were clean`,
+    p:`Right, and inside the budget. No action needed on these — `
+     +`${[...new Set(mastered.map(x=>x.q.topic))].slice(0,4).join(', ')}.`});
+  $('#finds').innerHTML=finds.map(f=>`<li><span class="fico f-${f.tone}">${f.ico}</span>
+    <div><h4>${f.h}</h4><p>${f.p}</p></div></li>`).join('') ||
+    '<li><div><h4>Nothing stands out</h4><p>Come back tomorrow for a clearer picture.</p></div></li>';
+
+  /* next actions — every weak point gets a prescription */
+  const acts=[];
+  all.filter(x=>x.quad==='gap').forEach(x=>acts.push({
+    h:`Relearn ${x.q.prerequisite_concept}`,
+    p:x.q.explanation, tag:`${x.q.topic} · underneath ${x.q.concept}`, pri:0}));
+  all.filter(x=>x.quad==='fragile'&&x.q.shortcut).forEach(x=>acts.push({
+    h:x.q.shortcut.name, p:x.q.shortcut.how,
+    tag:`${x.q.topic} · saves about ${x.q.shortcut.saves_seconds}s`, pri:1}));
+  const careless=all.filter(x=>x.quad==='careless');
+  if(careless.length) acts.push({pri:2,h:'Give each question its full budget',
+    p:`You answered ${careless.length} question${careless.length>1?'s':''} in under half the `
+     +`expected time and got ${careless.length>1?'them':'it'} wrong. Reading the stem twice `
+     +`costs ten seconds and would have caught ${careless.length>1?'both':'this'}.`,
+    tag:careless.map(x=>x.q.topic).join(', ')});
+  acts.sort((a,b)=>a.pri-b.pri);
+  const seen=new Set(), uniq=acts.filter(a=>!seen.has(a.h)&&seen.add(a.h)).slice(0,6);
+  $('#acts').innerHTML=uniq.map(a=>`<li><h4>${a.h}</h4><p>${a.p}</p>
+    <div class="tagline">${a.tag}</div></li>`).join('');
+  $('#actnote').textContent=uniq.length
+    ? `Tomorrow's set will over-sample ${[...new Set(all.filter(x=>x.quad==='gap'||x.quad==='fragile')
+      .map(x=>x.q.topic))].slice(0,3).join(', ')||'your weaker topics'}.`
+    : 'Nothing to prioritise — keep the streak going.';
+
+  /* per-question detail */
+  $('#detail').innerHTML=SECTIONS.map(S=>{
+    const rows=all.filter(x=>x.S.key===S.key);
+    return `<h3 style="margin:20px 0 9px">${S.name}</h3>`+rows.map(x=>{
+      const Q=QUAD[x.quad], q=x.q, a=x.a;
+      const yours = a.picked===null
+        ? `<span class="tag bad">${a.unreached?'not reached':'skipped'}</span>`
+        : `<span class="tag ${a.correct?'ok':'bad'}">you chose ${a.picked}</span>`;
+      const why = (!a.correct && a.picked && q.distractor_rationale[a.picked])
+        ? `<h5>Why that option looked right</h5><p class="x">${q.distractor_rationale[a.picked]}</p>` : '';
+      const sc = (q.shortcut && x.quad!=='mastered')
+        ? `<div class="short"><h6>⚡ ${q.shortcut.name}<span>saves ~${q.shortcut.saves_seconds}s</span></h6>
+           <p>${q.shortcut.how}</p></div>` : '';
+      return `<details class="q"><summary><span class="badge b-${Q.tone}">${Q.lab}</span>
+        <span class="stitle">${q.question_text.split('\n')[0].slice(0,72)}…</span>
+        <span class="stime">${a.t}s / ${q.expected_time_seconds}s</span></summary>
+        <div class="qbody"><p class="yours">${yours}
+        <span class="tag ok">correct: ${q.answer} — ${q.options[L.indexOf(q.answer)]}</span></p>
+        <h5>Explanation</h5><p class="x">${q.explanation}</p>${why}${sc}</div></details>`;
+    }).join('');}).join('');
+  show('#report');
+}
+
+/* demo path so the report can be reviewed without sitting 25 minutes */
+function demo(){
+  const T={"di.barchart.001.q1":[1,85],"di.barchart.001.q2":[0,130],"di.barchart.001.q3":[0,95],
+  "di.barchart.001.q4":[1,50],"di.barchart.001.q5":[1,40],
+  "quant.percentages.001":[1,70],"quant.timework.002":[1,88],"quant.profitloss.003":[0,70],
+  "quant.averages.004":[1,60],"quant.trains.005":[1,72],
+  "reasoning.bloodrel.001":[1,55],"reasoning.coding.002":[1,42],"reasoning.syllogism.003":[0,70],
+  "reasoning.direction.004":[1,88],"reasoning.series.005":[1,35],
+  "english.errors.001":[0,20],"english.improve.002":[1,30],"english.words.003":[0,12],
+  "english.correction.004":[1,35],"english.onewordsub.005":[1,25]};
+  SECTIONS.forEach(S=>{ let u=0; S.questions.forEach(q=>{
+    const [ok,t]=T[q.id]; u+=t;
+    const wrong=L.split('').filter(k=>k!==q.answer);
+    answers[q.id]={picked: ok? q.answer : wrong[0], correct: !!ok, t, section:S.key};
+  }); secUsed[S.key]=u; });
+  report();
+}
+$('#go').onclick=()=>{ si=0; answers={}; secUsed={}; startSection(); };
+$('#seedemo').onclick=demo;
+$('#again').onclick=()=>{ si=0; qi=0; answers={}; secUsed={}; clearInterval(tick); show('#start'); };
+document.querySelectorAll('.themebtn').forEach(b=>b.onclick=()=>{
+  const r=document.documentElement;
+  const d=getComputedStyle(r).getPropertyValue('--plane').trim()==='#0d0d0d';
+  r.setAttribute('data-theme',d?'light':'dark');});
+</script></body></html>
