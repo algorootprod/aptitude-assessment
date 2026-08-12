@@ -1,0 +1,101 @@
+# .github/workflows/deploy.yml
+#
+# Same file as apex-assessment/interview-manage/debug-assessment/algojob_nest, changing only
+# SERVICE_NAME/ECR_REPOSITORY below. See those repos' copies for the full mapping.
+#
+# Trigger: tag push matching either pattern below
+#   - release-v1.2.3   -> deploys to PRODUCTION
+#   - qa-v1.2.3        -> deploys to QA
+#
+# Uses GitHub "Environments" (Settings -> Environments) named exactly
+# "qa" and "production" in this repo, each holding its own:
+#   EC2_HOST, EC2_USER, EC2_SSH_KEY
+# so the same secret names resolve to a different EC2 instance per environment.
+#
+# AWS auth is via OIDC (no long-lived keys) - AWS_ROLE_ARN is a repo-level
+# secret pointing at the IAM role GitHub Actions assumes to push to ECR.
+#
+# NOT active yet: this service has no ECR repo or GitHub Environments provisioned —
+# see CLAUDE.md, "Not in this pass".
+
+name: Build, Push to ECR, Deploy
+
+on:
+  push:
+    tags:
+      - "release-v*"
+      - "qa-v*"
+
+env:
+  AWS_REGION: ap-south-1
+  SERVICE_NAME: aptitude-assessment    # <-- change per repo, see mapping above
+  ECR_REPOSITORY: aptitude-assessment  # <-- matching ECR repo name for this service
+
+jobs:
+  detect-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.detect.outputs.environment }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - id: detect
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG" == qa-v* ]]; then
+            ENVIRONMENT="qa"
+          elif [[ "$TAG" == release-v* ]]; then
+            ENVIRONMENT="production"
+          else
+            echo "Tag '$TAG' matches neither qa-v* nor release-v* - aborting." >&2
+            exit 1
+          fi
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG -> environment: $ENVIRONMENT"
+
+  build-and-push:
+    needs: detect-environment
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for OIDC to mint the AWS credentials
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-skip-session-tagging: true
+
+      - name: Login to Amazon ECR
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        env:
+          REGISTRY: ${{ steps.ecr_login.outputs.registry }}
+          VERSION: ${{ needs.detect-environment.outputs.version }}
+        run: |
+          docker build -t "$REGISTRY/$ECR_REPOSITORY:$VERSION" .
+          docker push "$REGISTRY/$ECR_REPOSITORY:$VERSION"
+
+  deploy:
+    needs: [detect-environment, build-and-push]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}   # resolves to "qa" or "production" GitHub Environment
+    steps:
+      - name: Deploy to EC2 over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: SERVICE_NAME,VERSION
+          script: |
+            cd ~/app
+            export SERVICE_NAME=${{ env.SERVICE_NAME }}
+            export VERSION=${{ needs.detect-environment.outputs.version }}
+            ./deploy.sh "$SERVICE_NAME" "$VERSION"
