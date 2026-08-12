@@ -1,14 +1,28 @@
-"""Per-candidate topic state — this module's sole table, and its sole writer.
+"""Per-candidate topic state — this module's tables, and their sole writer.
 
-One row per (candidate, topic), holding only *current* state. Nothing historical lives here: the
-per-cycle record of what was asked is `user_test_questions`, and of how it went is
-`evaluation_result`, so any ladder movement is reconstructible by joining those two on
-`cycle_version` rather than by duplicating it here.
+`user_topic_map` holds one row per (candidate, topic) and only *current* state. No ladder history
+lives there: the per-cycle record of what was asked is `user_test_questions`, and of how it went is
+`evaluation_result`, so any level movement is reconstructible by joining those two on
+`cycle_version` rather than by duplicating it.
+
+`user_section_progress` is the deliberate exception — one row per (candidate, section, cycle),
+appended on every evaluation. It is not a duplicate of the above: it is the 0-100 figure the
+candidate is actually shown, and recomputing a whole time series on read would mean reaching into
+two other modules' tables and risking a number that disagrees with the one already on screen.
 """
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Index, Integer, SmallInteger, String, func
+from sqlalchemy import (
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
@@ -57,3 +71,36 @@ class UserTopicMastery(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class UserSectionProgress(Base):
+    """One section's 0-100 standing after one evaluated test — the progress chart's data points.
+
+    Appended by `update_from_evaluation` and never updated in place, so the series is the record of
+    what the candidate was shown at each cycle. `cycle_version` is the cycle that was **evaluated**,
+    not the one it advanced to. Added by migration 0005.
+    """
+
+    __tablename__ = "user_section_progress"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "section", "cycle_version", name="uq_user_section_progress_cycle"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    section: Mapped[str] = mapped_column(String(32))
+    cycle_version: Mapped[int] = mapped_column(Integer)
+
+    current_level: Mapped[int] = mapped_column(SmallInteger)
+    """Most repeated level among the topics that test covered — see `progress.section_progress`."""
+
+    raw_score: Mapped[float] = mapped_column(Float)
+    """0-100 mean `mastery_score` of those same topics: that sitting's section score."""
+
+    progress_score: Mapped[float] = mapped_column(Float)
+    """0-100. Stored rather than recomputed so this point can never disagree with the figure the
+    candidate saw, even if the formula or its inputs change later."""
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
