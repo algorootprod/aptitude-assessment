@@ -9,9 +9,11 @@ Usage:
 Prints a pass/fail report comparing what's in the DB against the known-good
 counts from the source dataset (1,310 total rows).
 """
+import os
+
 import psycopg2
 
-CONN_STR = "postgresql://neondb_owner:npg_sJ9Opbr8VZgQ@ep-polished-wildflower-azglx1bp-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+CONN_STR = os.environ["DATABASE_URL"]
 
 EXPECTED_TOTAL = 1310
 EXPECTED_BY_SECTION = {"quant": 340, "reasoning": 340, "english": 330, "di": 300}
