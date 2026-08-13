@@ -132,6 +132,63 @@ di_section_score = mean(QUADRANT_MASTERY_SCORE[q] for q in the set's 5 questions
 > "rushed" apart from "doesn't know it" — see the constant's own docstring in `constants.py` for
 > why that's accepted for now.
 
+### The section progress score
+
+The 0–100 figure a candidate is *shown* per section — the score card in `dev-ui`, the y-axis of
+the progress chart, `UserTopicMapOut.section_progress`, `GET /v1/progress/{user_id}` — is not
+produced by this module, but half its input is. The split is worth knowing before changing either
+side:
+
+| Term | What it is | Where it comes from |
+|---|---|---|
+| `s` | the raw 0–100 for that section's last sitting | **this module** — `QUADRANT_MASTERY_SCORE`, averaged |
+| `L` | the section's level, 1–5 | `user_topic_mapping`'s ladder |
+| `O` | the two combined | `app/modules/user_topic_mapping/progress.py` |
+
+```
+O = (100 / Λ) × [(L − 1) + s / 100]        Λ = MAX_TOPIC_LEVEL = 5
+
+L1  0–20    L2  20–40    L3  40–60    L4  60–80    L5  80–100
+```
+
+Each level owns an equal 20-point slice, so "scored full marks at this level" and "moved up a
+level" are worth exactly the same. L5 with `s = 100` is 100; L1 with `s = 0` is 0. (Ported from
+apex-assessment's `app/core/cefr.py:skill_progress_score`, where Λ = 6. Only the formula came
+across — apex's `LEVEL_BANDS` is a *different*, non-uniform concept and must not be mixed in.)
+
+**Where `s` comes from is this module's output.** Non-DI sections carry one question per topic, so
+each topic's `mastery_score` is just `QUADRANT_MASTERY_SCORE[quadrant]` and the section's mean is
+the same number `dev-ui` puts on the section score card (`dev-ui/lib/quadrants.js:scoreOf`, the
+same table mirrored client-side). DI's five questions share one topic, so its `mastery_score` is
+the `di_section_score` above. Either way it reaches `progress.py` through `user_topic_map`, not
+through a read of `evaluation_result`.
+
+**Which topics count.** `section_progress()` takes the cohort `last_cycle == cycle_version − 1` —
+the topics the *last evaluated* test actually covered — then `L` = the most repeated level in that
+cohort (lowest on a tie, so the figure never overstates) and `s` = their mean `mastery_score`. The
+cohort is deliberately not `times_tested > 0`: that counter is incremented when a topic is
+*scheduled*, so it would pull in topics queued for the in-flight test whose `mastery_score` is
+still `0.0` and drag every section down. `tests/unit/test_progress.py` pins that trap.
+
+Worked, for a quant section of 5 topics all at level 2 scoring 3 mastered + 1 fragile + 1 gap:
+
+```
+s = (100 + 100 + 100 + 50 + 0) / 5 = 70
+O = (100 / 5) × [(2 − 1) + 0.70]   = 34.0        → level 2's band, 70% of the way through it
+```
+
+**Every section reads 0.0 until the first evaluation.** That is an explicit `cycle_version <= 1`
+guard, not a derivation: at signup `cycle_version − 1 == 0` matches the never-scheduled topics and
+would report a meaningless 20.0 off their seeded level 2. `SectionStanding.level` and `.raw` are
+`None` there — not measured is not the same as scored zero.
+
+Each point is appended to `user_section_progress` (unique `(user_id, section, cycle_version)`,
+`ON CONFLICT DO NOTHING`) inside `update_from_evaluation`, *before* the next test is assembled and
+from the same `section_progress()` call `get_for_user` reports — so the stored history and the
+standing on screen are one computation rather than two that agree by luck. The `DO NOTHING` is
+what keeps it safe under this module's `retry_sync_call()`: a retry must not append a second point
+or rewrite one the candidate has already seen.
+
 ---
 
 ## The report — `report.py`
