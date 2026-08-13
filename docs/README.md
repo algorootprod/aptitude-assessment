@@ -11,6 +11,10 @@ what runs, in what order, and what the data does to it.
 | `evaluation_report` | built | [evaluation_report.md](evaluation_report.md) |
 | `question_generation` | Phase 2 — directory + README only | — |
 
+[**architecture.md**](architecture.md) is the cross-cutting one: every endpoint, when Nest calls it,
+and the whole candidate journey from signup (new *and* already-onboarded) through to the next day's
+paper. Start there if you are writing the Nest side.
+
 ## The one-paragraph version
 
 Each candidate holds a **level 1–5 per topic**, seeded at 2. `user_topic_mapping` owns those
