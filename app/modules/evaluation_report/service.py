@@ -46,6 +46,7 @@ from app.modules.evaluation_report.report import (
 )
 from app.modules.evaluation_report.repository import EvaluationReportRepository
 from app.modules.evaluation_report.schemas import (
+    AnswerSummaryOut,
     ReconciledCandidate,
     ReconcileOut,
     ReportOut,
@@ -121,6 +122,17 @@ class EvaluationReportService:
             where = "" if cycle_version is None else f" for cycle {cycle_version}"
             raise NotFoundError(_MODULE, __version__, f"no report for user {user_id}{where}")
         return self._as_report_out(report)
+
+    async def get_answer_summary(self, user_id: str) -> AnswerSummaryOut:
+        """Read by `user_stats` for the profile stats card. Not gated on candidate existence —
+        the caller already confirmed that via `user_topic_mapping`; a candidate who exists but
+        has sat nothing yet gets zeros, which is a valid answer, not an error."""
+        tests_taken, questions_solved, avg_time = await self.repo.answer_summary(user_id)
+        return AnswerSummaryOut(
+            tests_taken=tests_taken,
+            questions_solved=questions_solved,
+            avg_time_per_question_seconds=avg_time,
+        )
 
     async def reconcile(self, user_id: str | None = None) -> ReconcileOut:
         """Serves `POST /v1/admin/reconcile`. Re-runs post-evaluation work that never completed.

@@ -118,6 +118,28 @@ class EvaluationReportRepository:
         result = await self.session.execute(stmt)
         return result.scalars().one_or_none()
 
+    async def answer_summary(self, user_id: str) -> tuple[int, int, float | None]:
+        """`(tests_taken, questions_solved, avg_time_per_question_seconds)` across every cycle
+        the candidate has sat, straight off `user_answers` — for `user_stats`'s profile card.
+
+        `tests_taken` counts distinct `cycle_version`s rather than reading `user_topic_map`,
+        so it reflects cycles actually *sat*, not cycles assembled. `questions_solved` and the
+        average exclude `unreached` rows so an expired-clock zero cannot drag the average down
+        or count as a "solved" question.
+        """
+        stmt = select(
+            func.count(func.distinct(UserAnswer.cycle_version)),
+            func.count().filter(UserAnswer.picked.is_not(None), UserAnswer.unreached.is_(False)),
+            func.avg(UserAnswer.elapsed_seconds).filter(UserAnswer.unreached.is_(False)),
+        ).where(UserAnswer.user_id == user_id)
+        result = await self.session.execute(stmt)
+        tests_taken, questions_solved, avg_time = result.one()
+        return (
+            int(tests_taken),
+            int(questions_solved),
+            round(float(avg_time), 2) if avg_time is not None else None,
+        )
+
     async def latest_evaluated_cycles(self, user_id: str | None = None) -> dict[str, int]:
         """Highest cycle each candidate has been *scored* for, from `evaluation_result`.
 

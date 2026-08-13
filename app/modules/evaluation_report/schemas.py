@@ -133,3 +133,19 @@ class ReconcileOut(BaseModel):
     scanned: int
     reconciled: list[ReconciledCandidate]
     skipped: int
+
+
+class AnswerSummaryOut(BaseModel):
+    """Aggregate answer counts across every cycle a candidate has sat — read by `user_stats` for
+    the profile stats card's `tests_taken`/`questions_solved`/`avg_time_per_question_seconds`."""
+
+    tests_taken: int
+    questions_solved: int = Field(
+        description="Answered and reached — excludes skips left blank by choice and questions "
+        "the section clock cut off before they were reached."
+    )
+    avg_time_per_question_seconds: float | None = Field(
+        default=None,
+        description="Mean `elapsed_seconds` over reached questions only, so an unreached "
+        "question's zero does not drag the average down. Null if nothing has been reached yet.",
+    )
