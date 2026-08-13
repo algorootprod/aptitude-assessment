@@ -73,15 +73,22 @@ problems in this module.
 
 ## The quadrant rule — `scoring.py`
 
-Ported from the prototype's `quadOf()`:
+Ported from the prototype's `quadOf()`. `classify()` compares `elapsed_seconds` against two
+thresholds derived from the question's own `expected_time_seconds` (`E`), both named constants
+in `app/core/constants.py`:
+
+```
+mastered_limit  = E × EXPECTED_TIME_MASTERED_FACTOR   = E × 1.0
+careless_limit  = E × CARELESS_TIME_FRACTION          = E × 0.5
+```
 
 | Quadrant | Rule | What it means |
 |---|---|---|
-| `mastered` | correct, `elapsed <= expected` | clean |
-| `fragile` | correct, `elapsed > expected` | knows it, too slow |
-| `careless` | wrong, `elapsed < 0.5 x expected` | rushed — not a knowledge gap |
-| `gap` | wrong, `elapsed >= 0.5 x expected` | the method isn't there yet |
-| `unreached` | the section clock expired first | — |
+| `mastered` | correct, `elapsed <= mastered_limit` (`elapsed <= E`) | clean |
+| `fragile` | correct, `elapsed > mastered_limit` (`elapsed > E`) | knows it, too slow |
+| `careless` | wrong, `elapsed < careless_limit` (`elapsed < 0.5E`), **or skipped with time left** | rushed — not a knowledge gap |
+| `gap` | wrong, `elapsed >= careless_limit` (`elapsed >= 0.5E`) | the method isn't there yet |
+| `unreached` | `unreached` flag set — the section clock expired first | — |
 
 Two behaviours worth knowing before you change anything:
 
@@ -98,51 +105,99 @@ question's quadrant. **This module is the only place that number is produced**; 
 bands it at 85/40, and the prototype has no scoring function to port because it deliberately
 never shows a score.
 
-`di_section_score` averages `QUADRANT_MASTERY_SCORE` — mastered 100, fragile 70, careless 30,
-gap 0, unreached 0 — the same mapping `user_topic_mapping` already uses for its display field.
-That keeps speed in the signal:
+`di_section_score` averages `QUADRANT_MASTERY_SCORE` — **mastered 100, fragile 50, careless 0,
+gap 0, unreached 0** — the same mapping `user_topic_mapping` already uses for its display field
+and the report's per-section score card:
+
+```
+di_section_score = mean(QUADRANT_MASTERY_SCORE[q] for q in the set's 5 questions)
+                  = (100 × #mastered + 50 × #fragile) / 5        (careless/gap/unreached add 0)
+```
+
+`user_topic_mapping`'s ladder then bands that score: `> DI_PROMOTE_SCORE_THRESHOLD (85) → +1`,
+`< DI_DEMOTE_SCORE_THRESHOLD (40) → −1`, else `0`. That keeps speed in the signal:
 
 | Set result | Score | Ladder |
 |---|---|---|
 | 5 mastered | 100 | promote |
-| 4 mastered + 1 fragile | 94 | promote |
+| 4 mastered + 1 fragile | 90 | promote |
+| 3 mastered + 2 fragile | 80 | hold |
 | 4 mastered + 1 gap | 80 | hold |
-| 5 fragile (all right, all slow) | 70 | hold |
+| 5 fragile (all right, all slow) | 50 | hold |
 | 2 mastered + 3 gap | 40 | hold (not strictly `< 40`) |
 | 1 mastered + 4 gap | 20 | demote |
+| 1 mastered + 4 careless | 20 | demote |
+
+> `careless` and `gap` score identically (both 0) on this scale, so a DI section cannot signal
+> "rushed" apart from "doesn't know it" — see the constant's own docstring in `constants.py` for
+> why that's accepted for now.
 
 ---
 
 ## The report — `report.py`
 
-Six parts, in the order they are read.
+Six parts, in the order they are read. Every threshold below is a named constant in
+`app/core/constants.py`.
 
-**`headline`** — one sentence naming the shape of the run, first match wins: three or more
-`fragile` → "You know more than the clock is letting you show." · three or more `careless` ·
-five or more `gap` · fifteen or more `mastered` · else "A mixed run". The prototype carries the
-comment *"describe the shape, never lead with a score"*, and that is a product decision, not a
-stylistic one.
+**`headline`** (`build_headline`) — one sentence naming the shape of the run. Counts quadrants
+across all 20 questions, first match wins:
 
-**`tiles`** — a count per quadrant. The four verdicts are always shown; `unreached` appears only
-when it happened, so in the normal case the four tiles visibly sum to 20.
+```
+count(fragile)  >= HEADLINE_FRAGILE_THRESHOLD  (3)  → "You know more than the clock is letting you show."
+count(careless) >= HEADLINE_CARELESS_THRESHOLD (3)  → "You're losing marks to speed, not to knowledge."
+count(gap)      >= HEADLINE_GAP_THRESHOLD      (5)  → "There are real gaps to close before speed becomes the problem."
+count(mastered) >= HEADLINE_MASTERED_THRESHOLD (15) → "Strong run. The remaining issues are narrow and fixable."
+else                                                → "A mixed run — three different things are going on."
+```
 
-**`section_table`** — right/total, clock used against budget, and one sentence chosen by a
-ladder where the first true thing wins: questions never reached › ran to the limit (>92% of
-budget) › rushed with time in hand › finished but over budget › comfortable.
+The prototype carries the comment *"describe the shape, never lead with a score"*, and that is a
+product decision, not a stylistic one.
 
-**`findings`** — the patterns. Two or more `fragile` in a section; two or more `careless` in a
-section *while under 75% of its budget*; the same `prerequisite_concept` behind two or more
-gaps anywhere in the paper; and a roll-up of everything clean. One slow answer is not a pattern —
-that threshold is the whole idea. If nothing fires, the report says "Nothing stands out" rather
-than inventing something.
+**`tiles`** (`build_tiles`) — a count per quadrant, in `TILE_ORDER` (mastered, fragile, careless,
+gap, unreached). The four real verdicts are always shown; `unreached` appears only when its count
+is non-zero, so in the normal case the four visible tiles sum to 20.
 
-**`actions`** — a prescription per weak point: `gap` → "Relearn {prerequisite_concept}" ·
-`fragile` → that question's own shortcut · `careless` → pacing advice. Sorted by that priority,
-deduped by heading, capped at six.
+**`section_table`** (`build_section_table` / `_section_note`) — right/total, clock used against
+budget, and one sentence chosen by a ladder where the first true thing wins:
 
-**`questions`** — every question with the worked explanation, the rationale for *the option the
-candidate actually picked*, and the shortcut — the last only when they did not already answer it
-cleanly, since telling someone who nailed it about a faster route is noise.
+```
+unreached > 0                                                 → "{n} questions never reached."
+time_used / budget > SECTION_TIME_PRESSURE_FRACTION (0.92)    → "Ran right to the limit — no slack for a hard item."
+count(careless) >= FINDING_CARELESS_THRESHOLD (2)              → "{spare}s left unused, and {n} answers lost to haste."
+count(fragile)  >= FINDING_FRAGILE_THRESHOLD  (2)               → "Finished, but {n} answers came in over budget."
+else                                                           → "Comfortable — {spare}s to spare."
+```
+
+**`findings`** (`build_findings`) — the patterns, not per-question noise. One slow answer is not
+a pattern; that threshold is the whole idea:
+
+- **Fragile cluster** — a section with `count(fragile) >= FINDING_FRAGILE_THRESHOLD (2)`.
+- **Rushed with time in hand** — a section with `count(careless) >= FINDING_CARELESS_THRESHOLD
+  (2)` **and** `time_used_seconds < budget_seconds × CARELESS_BUDGET_FRACTION (0.75)`.
+- **Shared root cause** — the same `prerequisite_concept` behind
+  `count >= FINDING_PREREQUISITE_THRESHOLD (2)` `gap` questions anywhere in the paper (sorted
+  alphabetically by prerequisite).
+- **Clean roll-up** — if any `mastered` questions exist, one finding naming up to
+  `MASTERED_TOPICS_NAMED (4)` of their topics.
+- If none of the above fire, the single finding is "Nothing stands out" rather than inventing a
+  pattern.
+
+**`actions`** (`build_actions`) — a prescription per weak point, sorted by priority
+(`ACTION_PRIORITY_GAP=0` < `ACTION_PRIORITY_FRAGILE=1` < `ACTION_PRIORITY_CARELESS=2`), deduped
+by heading, capped at `MAX_ACTIONS (6)`:
+
+- every `gap` question → `"Relearn {prerequisite_concept or topic}"`, detail = the question's
+  `explanation` (or a generated fallback sentence if null).
+- every `fragile` question **that has a shortcut on file** (`shortcut_name` and `shortcut_how`
+  both set) → heading = `shortcut_name`, detail = `shortcut_how`. A fragile question with no
+  shortcut produces no action rather than an empty one.
+- all `careless` questions together → **one** action, "Give each question its full budget", with
+  pacing advice naming the count and the affected topics.
+
+**`questions`** (`build_question_reviews`) — every question, in sat order, with the worked
+explanation, the rationale for *the option the candidate actually picked*
+(`distractor_rationale`), and the shortcut fields — the last three are `null`ed out when
+`quadrant == "mastered"`, since telling someone who nailed it about a faster route is noise.
 
 ### Two places the data pushes back
 
