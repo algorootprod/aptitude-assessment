@@ -10,14 +10,26 @@ from app.core.constants import (
     DEFAULT_EXPECTED_TIME_SECONDS,
     DI_SECTION,
     OPTION_LETTERS,
+    QUESTIONS_PER_SECTION,
+    SECTION_DISPLAY_NAMES,
     SECTION_ORDER,
+    TOPICS_PER_SECTION,
     SelectionFallback,
 )
-from app.core.exceptions import NotFoundError, TestMappingError
+from app.core.exceptions import ConflictError, NotFoundError, TestMappingError
 from app.modules.user_test_mapping import __version__
 from app.modules.user_test_mapping.models import QuestionBank, UserTestQuestions
 from app.modules.user_test_mapping.repository import UserTestMappingRepository
 from app.modules.user_test_mapping.schemas import (
+    AdminAnalyticsOut,
+    AdminDeleteOut,
+    AdminQuestionCreateIn,
+    AdminQuestionListOut,
+    AdminQuestionMutationOut,
+    AdminQuestionOut,
+    AdminQuestionUpdateIn,
+    AdminSectionDifficultyRow,
+    AdminSectionOut,
     QuestionOut,
     QuestionScoringOut,
     SectionQuestions,
@@ -113,13 +125,9 @@ class UserTestMappingService:
             if not section_slots:
                 continue
             if section == DI_SECTION:
-                selected = await self._build_di_section(
-                    section_slots[0], seen_sets, seen_set_order
-                )
+                selected = await self._build_di_section(section_slots[0], seen_sets, seen_set_order)
             else:
-                selected = await self._build_section(
-                    section, section_slots, seen_ids, seen_order
-                )
+                selected = await self._build_section(section, section_slots, seen_ids, seen_order)
             if selected is None:
                 continue
             # A slot filled now must not be filled again by a later slot in the same test.
@@ -219,6 +227,194 @@ class UserTestMappingService:
             level=slot.level,
             selection_fallback=fallback,
         )
+
+    # ---- admin panel ----
+    #
+    # The question bank's CRUD surface, served through `/v1/admin/questions*`. It goes through this
+    # service rather than letting the route touch the repository directly, because the guards below
+    # are what keep an edit from quietly breaking a candidate's paper — and this module is the
+    # table's sole writer either way.
+
+    async def admin_analytics(self) -> AdminAnalyticsOut:
+        """The panel's dashboard: bank depth per section and difficulty, topic coverage against the
+        shape a paper needs, and the two data-quality figures worth watching."""
+        counts = await self.repo.count_by_section_difficulty()
+        topics_in_bank = await self.repo.count_topics_per_section()
+        malformed = await self.repo.list_malformed_di_sets()
+
+        rows: list[AdminSectionDifficultyRow] = []
+        for section in SECTION_ORDER:
+            by_difficulty = counts.get(section, {})
+            rows.append(
+                AdminSectionDifficultyRow(
+                    section=section,
+                    display=SECTION_DISPLAY_NAMES.get(section, section),
+                    total=sum(by_difficulty.values()),
+                    by_difficulty={
+                        ("unset" if level is None else str(level)): n
+                        for level, n in sorted(
+                            by_difficulty.items(), key=lambda kv: (kv[0] is None, kv[0])
+                        )
+                    },
+                    topics_in_bank=topics_in_bank.get(section, 0),
+                    topics_expected=TOPICS_PER_SECTION.get(section, QUESTIONS_PER_SECTION),
+                )
+            )
+
+        return AdminAnalyticsOut(
+            total_questions=sum(row.total for row in rows),
+            total_topics=sum(topics_in_bank.values()),
+            sections=rows,
+            missing_answer_key=await self.repo.count_missing_answer(),
+            malformed_di_sets=[{"set_id": set_id, "size": size} for set_id, size in malformed],
+        )
+
+    async def admin_list_sections(self) -> list[AdminSectionOut]:
+        """Section and topic metadata for the panel's filter dropdowns."""
+        by_section: dict[str, list[str]] = {}
+        for section, topic in await self.repo.list_topics():
+            by_section.setdefault(section, []).append(topic)
+
+        return [
+            AdminSectionOut(
+                section=section,
+                display=SECTION_DISPLAY_NAMES.get(section, section),
+                topics=by_section.get(section, []),
+                questions_per_test=QUESTIONS_PER_SECTION,
+                topics_per_test=TOPICS_PER_SECTION.get(section, QUESTIONS_PER_SECTION),
+            )
+            for section in SECTION_ORDER
+        ]
+
+    async def admin_list_questions(
+        self,
+        *,
+        section: str | None = None,
+        topic: str | None = None,
+        difficulty: int | None = None,
+        set_id: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> AdminQuestionListOut:
+        rows, total = await self.repo.list_admin(
+            section=section,
+            topic=topic,
+            difficulty=difficulty,
+            set_id=set_id,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        return AdminQuestionListOut(
+            rows=[AdminQuestionOut.model_validate(row) for row in rows],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def admin_get_question(self, question_id: str) -> AdminQuestionOut:
+        row = await self._require_question(question_id)
+        return AdminQuestionOut.model_validate(row)
+
+    async def admin_create_question(
+        self, payload: AdminQuestionCreateIn
+    ) -> AdminQuestionMutationOut:
+        if await self.repo.get_question(payload.id) is not None:
+            raise ConflictError(_MODULE, __version__, f"Question '{payload.id}' already exists.")
+        row = await self.repo.create_question(payload.model_dump())
+        return AdminQuestionMutationOut(
+            question=AdminQuestionOut.model_validate(row),
+            warnings=self._question_warnings(row),
+        )
+
+    async def admin_update_question(
+        self, question_id: str, payload: AdminQuestionUpdateIn
+    ) -> AdminQuestionMutationOut:
+        row = await self._require_question(question_id)
+        changes = payload.model_dump(exclude_unset=True)
+
+        # Moving a question out of its DI set would leave that set short, exactly as a delete
+        # would, so it is guarded the same way.
+        if "set_id" in changes and changes["set_id"] != row.set_id and row.set_id is not None:
+            await self._guard_di_set_intact(row, action="move out of its set")
+
+        row = await self.repo.update_question(row, changes)
+        return AdminQuestionMutationOut(
+            question=AdminQuestionOut.model_validate(row),
+            warnings=self._question_warnings(row),
+        )
+
+    async def admin_delete_question(self, question_id: str) -> AdminDeleteOut:
+        row = await self._require_question(question_id)
+
+        pending = await self.repo.count_pending_paper_references(question_id)
+        if pending:
+            whose = (
+                "1 candidate's current paper"
+                if pending == 1
+                else f"{pending} candidates' current papers"
+            )
+            raise ConflictError(
+                _MODULE,
+                __version__,
+                f"'{question_id}' is in {whose}. Deleting it would break their test — wait until "
+                "those cycles are evaluated, or edit the question instead.",
+            )
+        await self._guard_di_set_intact(row, action="delete")
+
+        await self.repo.delete_question(question_id)
+        return AdminDeleteOut(id=question_id)
+
+    async def _require_question(self, question_id: str) -> QuestionBank:
+        row = await self.repo.get_question(question_id)
+        if row is None:
+            raise NotFoundError(_MODULE, __version__, f"Question '{question_id}' not found.")
+        return row
+
+    async def _guard_di_set_intact(self, row: QuestionBank, *, action: str) -> None:
+        """A DI section is one whole `set_id` of five questions sharing a chart. Dropping one to
+        four means that set can no longer fill a section at all, so it is refused rather than
+        silently narrowing the pool."""
+        if row.section != DI_SECTION or row.set_id is None:
+            return
+        size = await self.repo.count_di_set_size(row.set_id)
+        if size <= QUESTIONS_PER_SECTION:
+            raise ConflictError(
+                _MODULE,
+                __version__,
+                f"DI set '{row.set_id}' holds {size} questions; a DI section needs "
+                f"{QUESTIONS_PER_SECTION}. Cannot {action} — delete the whole set instead.",
+            )
+
+    @staticmethod
+    def _question_warnings(row: QuestionBank) -> list[str]:
+        """Non-blocking data-quality notes shown next to a saved row."""
+        warnings: list[str] = []
+        if row.answer is None:
+            warnings.append(
+                "No answer key — this question can never be scored correct, and will read as a "
+                "gap or careless mistake for every candidate who sees it."
+            )
+        filled = [o for o in (row.option_a, row.option_b, row.option_c, row.option_d) if o]
+        if len(filled) < len(OPTION_LETTERS):
+            warnings.append(f"Only {len(filled)} of {len(OPTION_LETTERS)} options are filled in.")
+        if row.answer is not None:
+            chosen = dict(
+                zip(
+                    OPTION_LETTERS,
+                    (row.option_a, row.option_b, row.option_c, row.option_d),
+                    strict=False,
+                )
+            )
+            if not chosen.get(row.answer):
+                warnings.append(f"Answer key points at option {row.answer}, which is empty.")
+        if row.expected_time_seconds is None:
+            warnings.append(
+                "No expected time — the section default is used, and the fragile/careless split "
+                "for this question falls back to it."
+            )
+        return warnings
 
     @staticmethod
     def _as_selected(

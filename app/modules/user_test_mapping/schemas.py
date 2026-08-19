@@ -1,3 +1,5 @@
+from typing import Annotated, Any, Literal
+
 from pydantic import BaseModel, Field
 
 from app.core.constants import SelectionFallback
@@ -133,4 +135,187 @@ class SelectedSection(BaseModel):
     level: int | None = Field(default=None, description="DI only: the slot level asked for.")
     selection_fallback: SelectionFallback | None = Field(
         default=None, description="DI only: how the set was chosen."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin panel
+#
+# These carry the *whole* row, answer key and coaching material included — the opposite of
+# `QuestionOut`, which strips them because it is served to a candidate before the test. Nothing
+# here is ever reachable by a candidate: the routes sit behind Nest's AdminAuthGuard.
+# ---------------------------------------------------------------------------
+
+AnswerLetter = Literal["A", "B", "C", "D"]
+
+
+class AdminQuestionOut(BaseModel):
+    """One `question_bank` row, verbatim."""
+
+    model_config = {"from_attributes": True}
+
+    id: str
+    section: str
+    topic: str
+    concept: str | None = None
+    prerequisite_concept: str | None = None
+    method_tag: str | None = None
+    question_text: str
+    option_a: str | None = None
+    option_b: str | None = None
+    option_c: str | None = None
+    option_d: str | None = None
+    answer: AnswerLetter | None = None
+    explanation: str | None = None
+    distractor_rationale_a: str | None = None
+    distractor_rationale_b: str | None = None
+    distractor_rationale_c: str | None = None
+    distractor_rationale_d: str | None = None
+    shortcut_available: bool | None = None
+    shortcut_name: str | None = None
+    shortcut_how: str | None = None
+    shortcut_saves_seconds: int | None = None
+    difficulty: int | None = None
+    expected_time_seconds: int | None = None
+    source: str | None = None
+    calibration: str | None = None
+    batch_number: int | None = None
+    set_id: str | None = None
+    chart_type: str | None = None
+    chart_image: str | None = None
+    chart_image_svg: str | None = None
+    chart_direction: str | None = None
+    chart_data: Any | None = None
+
+
+class AdminQuestionListOut(BaseModel):
+    rows: list[AdminQuestionOut]
+    total: int = Field(description="Matching rows before pagination, so the panel can show n of N.")
+    limit: int
+    offset: int
+
+
+class AdminQuestionCreateIn(BaseModel):
+    """`id` is required, not generated. It is the natural key the curation pipeline assigns
+    (`<section>.<topic>.<n>`, or `<set>.q<n>` for DI) and the value every assembled paper stores,
+    so the panel must state it rather than have one invented."""
+
+    id: str = Field(min_length=1)
+    section: str
+    topic: str
+    question_text: str = Field(min_length=1)
+    option_a: str | None = None
+    option_b: str | None = None
+    option_c: str | None = None
+    option_d: str | None = None
+    answer: AnswerLetter | None = None
+    concept: str | None = None
+    prerequisite_concept: str | None = None
+    method_tag: str | None = None
+    explanation: str | None = None
+    distractor_rationale_a: str | None = None
+    distractor_rationale_b: str | None = None
+    distractor_rationale_c: str | None = None
+    distractor_rationale_d: str | None = None
+    shortcut_available: bool | None = None
+    shortcut_name: str | None = None
+    shortcut_how: str | None = None
+    shortcut_saves_seconds: int | None = None
+    difficulty: Annotated[int, Field(ge=1, le=5)] | None = None
+    expected_time_seconds: Annotated[int, Field(gt=0)] | None = None
+    source: str | None = None
+    calibration: str | None = None
+    batch_number: int | None = None
+    set_id: str | None = None
+    chart_type: str | None = None
+    chart_image: str | None = None
+    chart_image_svg: str | None = None
+    chart_direction: str | None = None
+    chart_data: Any | None = None
+
+
+class AdminQuestionUpdateIn(BaseModel):
+    """Every field optional — a PATCH applies only what is sent. `id` is absent on purpose: see
+    `EDITABLE_QUESTION_FIELDS` in this module's repository."""
+
+    model_config = {"extra": "forbid"}
+
+    section: str | None = None
+    topic: str | None = None
+    question_text: str | None = Field(default=None, min_length=1)
+    option_a: str | None = None
+    option_b: str | None = None
+    option_c: str | None = None
+    option_d: str | None = None
+    answer: AnswerLetter | None = None
+    concept: str | None = None
+    prerequisite_concept: str | None = None
+    method_tag: str | None = None
+    explanation: str | None = None
+    distractor_rationale_a: str | None = None
+    distractor_rationale_b: str | None = None
+    distractor_rationale_c: str | None = None
+    distractor_rationale_d: str | None = None
+    shortcut_available: bool | None = None
+    shortcut_name: str | None = None
+    shortcut_how: str | None = None
+    shortcut_saves_seconds: int | None = None
+    difficulty: Annotated[int, Field(ge=1, le=5)] | None = None
+    expected_time_seconds: Annotated[int, Field(gt=0)] | None = None
+    source: str | None = None
+    calibration: str | None = None
+    batch_number: int | None = None
+    set_id: str | None = None
+    chart_type: str | None = None
+    chart_image: str | None = None
+    chart_image_svg: str | None = None
+    chart_direction: str | None = None
+    chart_data: Any | None = None
+
+
+class AdminQuestionMutationOut(BaseModel):
+    """The saved row plus anything the panel should warn about but that did not block the write."""
+
+    question: AdminQuestionOut
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AdminDeleteOut(BaseModel):
+    status: Literal["deleted"] = "deleted"
+    id: str
+
+
+class AdminSectionOut(BaseModel):
+    section: str
+    display: str
+    topics: list[str]
+    questions_per_test: int = Field(
+        description="Slots this section fills in a paper — 5 for every section today."
+    )
+    topics_per_test: int = Field(
+        description="Topics drawn per cycle. 1 for DI, because a DI section is one whole set."
+    )
+
+
+class AdminSectionDifficultyRow(BaseModel):
+    section: str
+    display: str
+    total: int
+    by_difficulty: dict[str, int] = Field(
+        description="Difficulty 1-5 to count. The key `unset` holds rows with a null difficulty."
+    )
+    topics_in_bank: int
+    topics_expected: int
+
+
+class AdminAnalyticsOut(BaseModel):
+    total_questions: int
+    total_topics: int
+    sections: list[AdminSectionDifficultyRow]
+    missing_answer_key: int = Field(
+        description="Rows with no `answer`. These can never score as mastered."
+    )
+    malformed_di_sets: list[dict[str, int | str]] = Field(
+        default_factory=list,
+        description="DI sets not holding exactly five questions, as {set_id, size}.",
     )

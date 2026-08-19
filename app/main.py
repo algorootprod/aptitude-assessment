@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.core.logging import configure_logging, get_logger
 from app.core.tasks import drain as drain_background_tasks
 from app.infrastructure.db.session import dispose_engine
@@ -79,6 +79,16 @@ async def _not_found_handler(request: Request, exc: NotFoundError) -> JSONRespon
     """An unknown candidate is a client mistake, not a server fault — 404, not 500."""
     return JSONResponse(
         status_code=404,
+        content={"detail": exc.message, "module": exc.module, "version": exc.version},
+    )
+
+
+@app.exception_handler(ConflictError)
+async def _conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    """A guarded admin edit that would break a pending paper or a DI set — 409, so the panel can
+    show why rather than reporting a server fault."""
+    return JSONResponse(
+        status_code=409,
         content={"detail": exc.message, "module": exc.module, "version": exc.version},
     )
 
